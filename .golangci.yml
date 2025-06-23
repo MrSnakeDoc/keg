@@ -1,0 +1,83 @@
+version: "2"
+run:
+  concurrency: 2
+linters:
+  default: none
+  enable:
+    - copyloopvar
+    - depguard
+    - errcheck
+    - errorlint
+    - gocritic
+    - gocyclo
+    - gomodguard
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - nolintlint
+    - revive
+    - staticcheck
+    - testifylint
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    depguard:
+      rules:
+        all:
+          deny:
+            - pkg: io/ioutil
+              desc: io/ioutil package has been deprecated
+            - pkg: gopkg.in/yaml.v2
+              desc: compose-go uses yaml.v3
+    gocritic:
+      disabled-checks:
+        - paramTypeCombine
+        - unnamedResult
+        - whyNoLint
+      enabled-tags:
+        - diagnostic
+        - opinionated
+        - style
+    gocyclo:
+      min-complexity: 16
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/pkg/errors:
+              recommendations:
+                - errors
+                - fmt
+        versions:
+          - github.com/distribution/distribution:
+              reason: use distribution/reference
+          - gotest.tools:
+              version: < 3.0.0
+              reason: deprecated, pre-modules version
+    lll:
+      line-length: 200
+    revive:
+      rules:
+        - name: package-comments
+          disabled: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

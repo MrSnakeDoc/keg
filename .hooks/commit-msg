@@ -1,0 +1,27 @@
+#!/bin/sh
+commit_message=$(cat "$1")
+
+if ! echo "$commit_message" | grep -Eq "^(feat|fix|chore|docs|style|refactor|test|perf|adj)\([a-zA-Z0-9\-]+\): .+"; then
+  echo "Error: Commit message format must be: 'type(scope): description'"
+  echo "Valid types: feat, fix, chore, docs, style, refactor, test, perf, adj"
+  echo "Examples:"
+  echo "  feat(add): add alert routing logic"
+  echo "  fix(update): correct payload format"
+  echo "  refactor(upgrade): cleanup logger init"
+  echo "  chore(deps): bump gin to v1.9.1"
+  echo ""
+  echo "Allowed types:"
+  echo "  feat      : ✨ New feature"
+  echo "  fix       : 🐛 Bug fix"
+  echo "  chore     : 📦 Maintenance or non-functional change"
+  echo "  docs      : 📝 Documentation update"
+  echo "  style     : 💅 Code style/formatting (no logic change)"
+  echo "  refactor  : 🧠 Code refactor (no new features or fixes)"
+  echo "  test      : ✅ Adding or modifying tests"
+  echo "  perf      : ⚡️ Performance improvements"
+  echo "  adj       : 🧩 Structure or file organization"
+  exit 1
+fi
+
+#!/bin/sh
+commit_message=$(cat "$1")

@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# Check if there are any Go files in the project
+if [ -z "$(find . -name '*.go' -print -quit)" ]; then
+  echo "No Go files to check. Skipping build and lint checks."
+  exit 0
+fi
+
+echo "Checking if the code compiles..."
+if ! go build ./...; then
+  echo "Error: Code does not compile. Commit aborted."
+  exit 1
+fi
+
+echo "Running linters..."
+if ! golangci-lint run --config .golangci.yml; then
+  echo "Error: Linting issues detected."
+  exit 1
+fi

@@ -1,0 +1,12 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly    # Changed from daily since Keg is smaller
+    ignore:
+      # Ignore major updates for core dependencies to ensure stability
+      - dependency-name: "github.com/spf13/cobra"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "github.com/sirupsen/logrus"
+        update-types: ["version-update:semver-major"]

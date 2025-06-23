@@ -1,0 +1,65 @@
+name: 🐛 Bug Report
+description: Create a report to help improve Keg
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+        Before submitting, please check if a similar issue already exists.
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: "What is your OS version and Go version?"
+      placeholder: "Ubuntu 22.04, Go 1.24.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which part of Keg is affected?
+      options:
+        - Package Installation
+        - Package Updates
+        - Package Removal
+        - Homebrew Integration
+        - ZSH Setup
+        - Configuration Management
+        - CLI Interface
+        - Auto-updates
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the bug is
+      placeholder: "When I try to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Run `keg init`
+        2. Add package to keg.yml
+        3. Run `keg install`
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Please copy and paste any relevant log output
+      render: shell

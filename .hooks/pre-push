@@ -1,0 +1,13 @@
+#!/bin/sh
+
+echo "Running tests..."
+
+if [ -z "$(find . -name '*.go')" ]; then
+  echo "No Go files found. Skipping tests."
+  exit 0
+fi
+
+if ! go test ./...; then
+  echo "Error: Tests failed. Push aborted."
+  exit 1
+fi
