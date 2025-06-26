@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly    # Changed from daily since Keg is smaller
+    target-branch: "staging"
+    commit-message:
+      prefix: "build(deps)"
     ignore:
       # Ignore major updates for core dependencies to ensure stability
       - dependency-name: "github.com/spf13/cobra"
