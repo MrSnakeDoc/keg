@@ -12,6 +12,8 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
+var saveConfig = utils.SaveConfig
+
 type Installer struct {
 	*core.Base
 	prompt prompter.Prompter
@@ -84,7 +86,7 @@ func (i *Installer) handleMissingPackages(pkgs []string) ([]string, error) {
 	}
 
 	if anyAdded {
-		if err := utils.SaveConfig(i.Config); err != nil {
+		if err := saveConfig(i.Config); err != nil {
 			return nil, err
 		}
 	}

@@ -93,6 +93,9 @@ var executeTestCases = []struct {
 }
 
 func TestInstaller_Execute(t *testing.T) {
+	oldSave := saveConfig
+	saveConfig = func(_ *models.Config) error { return nil }
+	defer func() { saveConfig = oldSave }()
 	for _, tt := range executeTestCases {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRunner := runner.NewMockRunner()
