@@ -9,11 +9,17 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/logger"
 )
 
+const (
+	CacheDir     = ".local/state/keg"
+	OutdatedFile = "keg_brew_update.json"
+	CacheExpiry  = 24 * time.Hour
+)
+
 func DefaultUpdateState() map[string]interface{} {
 	return map[string]interface{}{
-		"last_checked":     time.Now().UTC().Format(time.RFC3339Nano),
+		"last_checked":     time.Now().Add(-CacheExpiry).UTC().Format(time.RFC3339Nano),
 		"update_available": false,
-		"latest_version":   "0.0.1",
+		"latest_version":   "",
 	}
 }
 
