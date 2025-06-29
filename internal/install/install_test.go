@@ -78,7 +78,7 @@ var executeTestCases = []struct {
 		interactive: true,
 		prompter: &mockPrompter{
 			confirms: []bool{true, false}, // add? yes, optional? no
-			prompts:  []string{""},        // binary name (vide => same as command)
+			prompts:  []string{""},        // binary name (Empty => same as command)
 		},
 	},
 	{

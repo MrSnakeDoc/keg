@@ -22,7 +22,7 @@ func New(config *models.Config, r runner.CommandRunner, p prompter.Prompter) *In
 		r = &runner.ExecRunner{}
 	}
 
-	if p == nil { // création lazy
+	if p == nil {
 		p = prompter.New(os.Stdin, os.Stdout)
 	}
 
