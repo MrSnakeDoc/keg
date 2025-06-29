@@ -25,16 +25,18 @@ Examples:
 			}
 
 			allFlag, _ := cmd.Flags().GetBool("all")
+			interactive, _ := cmd.Flags().GetBool("interactive")
 
 			// Create a new installer instance
-			inst := install.New(cfg, nil)
+			inst := install.New(cfg, nil, nil)
 
-			return inst.Execute(args, allFlag)
+			return inst.Execute(args, allFlag, interactive)
 		},
 	}
 
 	// Add flags
 	cmd.Flags().BoolP("all", "a", false, "Install all packages, including optionals")
+	cmd.Flags().BoolP("interactive", "i", false, "Prompt to add missing packages")
 
 	return cmd
 }

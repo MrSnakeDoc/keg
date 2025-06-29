@@ -102,8 +102,8 @@ func (d *Deployer) installHomebrew() error {
 func (d *Deployer) ExecuteBrewPlugins() error {
 	logger.Info("Installing brew plugins...")
 
-	inst := install.New(d.Config, d.Runner)
-	if err := inst.Execute(nil, false); err != nil {
+	inst := install.New(d.Config, d.Runner, nil)
+	if err := inst.Execute(nil, false, false); err != nil {
 		return fmt.Errorf("failed to install brew plugins: %w", err)
 	}
 
