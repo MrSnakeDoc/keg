@@ -35,14 +35,8 @@ type cacheFile struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
-const (
-	cacheDir     = ".local/state/keg"
-	outdatedFile = "keg_brew_update.json"
-	cacheExpiry  = 24 * time.Hour
-)
-
 func readCache(filename string) (*brewOutdatedJSON, error) {
-	path := utils.MakeFilePath(cacheDir, filename)
+	path := utils.MakeFilePath(utils.CacheDir, filename)
 
 	var cache cacheFile
 	if err := utils.FileReader(path, "json", &cache); err != nil {
@@ -50,7 +44,7 @@ func readCache(filename string) (*brewOutdatedJSON, error) {
 	}
 
 	// Check if cache is expired
-	if time.Since(cache.Timestamp) > cacheExpiry {
+	if time.Since(cache.Timestamp) > utils.CacheExpiry {
 		return nil, fmt.Errorf("cache expired")
 	}
 
@@ -81,7 +75,7 @@ func FetchOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
 	// 4. Write the cache
 	cache := cacheFile{Data: &outdated, Timestamp: time.Now()}
 	if err := utils.CreateFile(
-		utils.MakeFilePath(cacheDir, outdatedFile),
+		utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile),
 		cache, "json", 0o600); err != nil {
 		return nil, fmt.Errorf("failed to write cache: %w", err)
 	}
@@ -122,7 +116,7 @@ func FetchState() (*BrewState, error) {
 }
 
 func getOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
-	data, err := readCache(outdatedFile)
+	data, err := readCache(utils.OutdatedFile)
 	if err != nil {
 		return FetchOutdatedPackages(r)
 	}
