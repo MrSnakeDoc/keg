@@ -104,16 +104,18 @@ func (u *Updater) Execute(ctx context.Context) error {
 }
 
 func (u *Updater) downloadBinary(ctx context.Context) error {
-	file, err := os.CreateTemp("", "keg-update-*.bin")
+	dir := filepath.Dir(u.pathInfo.BinaryPath)
+	file, err := os.CreateTemp(dir, "keg-update-*.bin")
 	if err != nil {
 		return err
 	}
 	u.pathInfo.TempFileName = file.Name()
 	utils.Close(file)
 
-	if err := service.DownloadToFile(ctx, u.Client, u.response.URL, u.pathInfo.TempFileName, 30); err != nil {
+	if err := service.DownloadToFile(ctx, u.Client, u.response.URL, u.pathInfo.TempFileName, 0); err != nil {
 		return err
 	}
+
 	return utils.ValidateSHA256Checksum(u.pathInfo.TempFileName, u.response.SHA256)
 }
 
