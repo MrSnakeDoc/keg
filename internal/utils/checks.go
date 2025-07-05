@@ -21,7 +21,7 @@ func PreliminaryChecks() (*models.Config, error) {
 
 	if !IsHomebrewInstalled() {
 		WarningBrewMessages()
-		return nil, nil
+		return cfg, nil
 	}
 
 	return cfg, nil
