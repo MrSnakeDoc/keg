@@ -13,6 +13,8 @@ import (
 // LoadConfig loads the package configuration from keg.yml
 // It first reads the global config to get the packages file path
 func LoadConfig() (*models.Config, error) {
+	var config models.Config
+
 	// First, load global config to get packages file path
 	globalCfg, err := globalconfig.LoadPersistentConfig()
 	if err != nil {
@@ -20,14 +22,9 @@ func LoadConfig() (*models.Config, error) {
 	}
 
 	// Read packages configuration file
-	data, err := os.ReadFile(globalCfg.PackagesFile)
+	err = FileReader(globalCfg.PackagesFile, "yaml", &config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read packages file %s: %w", globalCfg.PackagesFile, err)
-	}
-
-	var config models.Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse packages file: %w", err)
 	}
 
 	return &config, nil
