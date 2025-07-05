@@ -14,14 +14,14 @@ func WarningBrewMessages() {
 }
 
 func PreliminaryChecks() (*models.Config, error) {
-	if !IsHomebrewInstalled() {
-		WarningBrewMessages()
-		return nil, nil
-	}
-
 	cfg, err := LoadConfig()
 	if err != nil {
 		return nil, err
+	}
+
+	if !IsHomebrewInstalled() {
+		WarningBrewMessages()
+		return nil, nil
 	}
 
 	return cfg, nil
