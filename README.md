@@ -1,4 +1,5 @@
 ![Go](https://img.shields.io/badge/go-1.24%2B-blue)
+[![Go Report Card](https://goreportcard.com/badge/github.com/MrSnakeDoc/keg)](https://goreportcard.com/report/github.com/MrSnakeDoc/keg)
 ![goreleaser](https://github.com/MrSnakeDoc/keg/actions/workflows/release.yml/badge.svg)
 
 # Keg CLI
