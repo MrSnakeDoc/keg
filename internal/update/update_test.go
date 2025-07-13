@@ -88,7 +88,7 @@ func TestUpdater_Execute_UpdateAvailable(t *testing.T) {
 		t.Fatalf("write old bin: %v", err)
 	}
 
-	if err := updater.Execute(ctx); err != nil {
+	if err := updater.Execute(ctx, false); err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
 

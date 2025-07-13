@@ -54,13 +54,33 @@ func New(conf *config.Config, client service.HTTPClient) *Updater {
 	return controller
 }
 
-func (u *Updater) Execute(ctx context.Context) error {
-	logger.Info("🔄 Starting update process...")
-	logger.Info("🔄 Checking for updates...")
+func (u *Updater) checkUpdateState(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error) {
 	c := checker.New(ctx, &u.Config, u.Client)
-	resp, err := c.Execute()
+	resp, err := c.Execute(checkOnly)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (u *Updater) Execute(ctx context.Context, checkOnly bool) error {
+	logger.Info("🔄 Starting update process...")
+	if checkOnly {
+		logger.Info("🔄 Check-only mode: bypassing timer")
+	}
+
+	resp, err := u.checkUpdateState(ctx, checkOnly)
+	if err != nil {
+		return fmt.Errorf("failed to check for updates: %w", err)
+	}
+
+	if checkOnly {
+		if resp != nil {
+			logger.Info("✅ Update available: v%s", resp.Version)
+		} else {
+			logger.Info("👍 Already on the latest version")
+		}
+		return nil
 	}
 
 	if resp == nil {

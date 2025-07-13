@@ -80,7 +80,7 @@ func TestCheckerController_Execute(t *testing.T) {
 	Version = "1.0.0"
 	checkerController := New(context.Background(), conf, releaseServer.Client())
 
-	_, err = checkerController.Execute()
+	_, err = checkerController.Execute(false)
 	if err != nil {
 		t.Fatalf("Execution failed: %v", err)
 	}

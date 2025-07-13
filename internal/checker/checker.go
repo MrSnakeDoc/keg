@@ -60,13 +60,15 @@ func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *C
 	return controller
 }
 
-func (c *CheckerController) Execute() (*utils.VersionInfo, error) {
+func (c *CheckerController) Execute(checkOnly bool) (*utils.VersionInfo, error) {
 	state, err := loadUpdateState()
 	if err != nil {
 		logger.Debug("Failed to load update state: %v", err)
 	}
 
-	if state == nil || time.Since(state.LastChecked) >= c.Config.CheckFrequency {
+	needsCheck := checkOnly || state == nil || time.Since(state.LastChecked) >= c.Config.CheckFrequency
+
+	if needsCheck {
 		var resp *utils.VersionInfo
 		resp, err = c.checkUpdate()
 		if err != nil {

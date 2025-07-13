@@ -16,9 +16,13 @@ func NewUpdateCmd() *cobra.Command {
 Examples:
   keg update            		# Update the keg CLI to the latest version`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			check, _ := cmd.Flags().GetBool("check")
+
 			update := update.New(nil, nil)
-			return update.Execute(context.Background())
+			return update.Execute(context.Background(), check)
 		},
 	}
+
+	cmd.Flags().BoolP("check", "c", false, "Check for update without waiting for the next scheduled check")
 	return cmd
 }
