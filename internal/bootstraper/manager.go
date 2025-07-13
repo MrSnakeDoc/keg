@@ -116,37 +116,19 @@ func RunStream(ctx context.Context, r runner.CommandRunner,
 // Behavior:
 //   - Detects the system's package manager (apt, dnf, pacman).
 //   - Executes the appropriate command for installation or updates.
-
-func (b *Bootstraper) runPackageManagerCommand(commands packageManagerCommands) error {
-	var args []string
-
-	switch {
-	case utils.CommandExists("apt"):
-		if len(commands.install) > 0 {
-			args = append([]string{"apt-get", "install", "-y"}, commands.install...)
-		} else {
-			args = []string{"bash", "-c", "sudo apt update && sudo apt upgrade -y"}
-		}
-
-	case utils.CommandExists("dnf"):
-		if len(commands.install) > 0 {
-			args = append([]string{"dnf", "install", "-y"}, commands.install...)
-		} else {
-			args = []string{"dnf", "upgrade", "--refresh", "-y"}
-		}
-
-	case utils.CommandExists("pacman"):
-		if len(commands.install) > 0 {
-			args = append([]string{"pacman", "-S", "--noconfirm"}, commands.install...)
-		} else {
-			args = []string{"pacman", "-Syu", "--noconfirm"}
-		}
-
-	default:
-		return fmt.Errorf("no supported package manager found")
+func (b *Bootstraper) runPackageManagerCommand(cmds packageManagerCommands) error {
+	pm, err := utils.PackageManager()
+	if err != nil {
+		return err
 	}
 
-	return RunStream(context.Background(), b.Runner, 200*time.Second, "sudo", args...)
+	base := pm.Update
+	if len(cmds.install) > 0 {
+		base = append([]string{}, pm.Install...)
+		base = append(base, cmds.install...)
+	}
+
+	return RunStream(context.Background(), b.Runner, 200*time.Second, "sudo", base...)
 }
 
 // updatePackageManagerIfNeeded prompts the user to update the system's package manager.
