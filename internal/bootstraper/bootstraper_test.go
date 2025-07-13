@@ -24,7 +24,7 @@ func expect(pm, mode string, pkgs []string) []string {
 		if mode == "update" {
 			return []string{"bash", "-c", "sudo apt update && sudo apt upgrade -y"}
 		}
-		return append([]string{"apt-get", "install", "-y"}, pkgs...)
+		return append([]string{"apt", "install", "-y"}, pkgs...)
 	case "dnf":
 		if mode == "update" {
 			return []string{"dnf", "upgrade", "--refresh", "-y"}
