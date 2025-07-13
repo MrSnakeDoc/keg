@@ -25,7 +25,10 @@ Examples:
 			}
 
 			// Check if we're just checking for updates
-			checkOnly, _ := cmd.Flags().GetBool("check")
+			checkOnly, err := cmd.Flags().GetBool("check")
+			if err != nil {
+				return err
+			}
 
 			upgrade := upgrade.New(cfg, nil)
 			return upgrade.Execute(args, checkOnly)
