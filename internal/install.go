@@ -24,8 +24,14 @@ Examples:
 				return err
 			}
 
-			allFlag, _ := cmd.Flags().GetBool("all")
-			interactive, _ := cmd.Flags().GetBool("interactive")
+			allFlag, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
+			interactive, err := cmd.Flags().GetBool("interactive")
+			if err != nil {
+				return err
+			}
 
 			// Create a new installer instance
 			inst := install.New(cfg, nil, nil)

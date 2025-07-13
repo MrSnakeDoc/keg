@@ -25,8 +25,15 @@ Examples:
 				return err
 			}
 
-			binary, _ := cmd.Flags().GetString("binary")
-			optional, _ := cmd.Flags().GetBool("optional")
+			binary, err := cmd.Flags().GetString("binary")
+			if err != nil {
+				return err
+			}
+
+			optional, err := cmd.Flags().GetBool("optional")
+			if err != nil {
+				return err
+			}
 
 			// Create adder
 			a := add.New(cfg, nil)

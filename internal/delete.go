@@ -24,7 +24,10 @@ Examples:
 				return err
 			}
 
-			allFlag, _ := cmd.Flags().GetBool("all")
+			allFlag, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
 
 			// Create uninstaller
 			uninstall := uninstall.New(cfg, nil)
@@ -35,7 +38,6 @@ Examples:
 
 	// Add flags
 	cmd.Flags().BoolP("all", "a", false, "Delete all packages from config")
-	cmd.Flags().BoolP("permanently", "p", false, "Delete packages permanently from config")
 
 	return cmd
 }

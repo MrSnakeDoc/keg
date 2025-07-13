@@ -16,7 +16,10 @@ func NewUpdateCmd() *cobra.Command {
 Examples:
   keg update            		# Update the keg CLI to the latest version`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			check, _ := cmd.Flags().GetBool("check")
+			check, err := cmd.Flags().GetBool("check")
+			if err != nil {
+				return err
+			}
 
 			update := update.New(nil, nil)
 			return update.Execute(context.Background(), check)
