@@ -48,6 +48,16 @@ func TestCheckerController_Execute(t *testing.T) {
 	}))
 	defer checksumServer.Close()
 
+	tmpHome := t.TempDir()
+	if err := os.Setenv("HOME", tmpHome); err != nil {
+		t.Fatalf("failed to set HOME environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("HOME"); err != nil {
+			t.Fatalf("failed to unset HOME environment variable: %v", err)
+		}
+	}()
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("failed to get user home directory: %v", err)
