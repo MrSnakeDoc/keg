@@ -23,8 +23,9 @@ type pathInfo struct {
 }
 
 type Updater struct {
-	Config   config.Config
+	Config   *config.Config
 	Client   service.HTTPClient
+	Checker  checker.IChecker
 	response *utils.VersionInfo
 	pathInfo *pathInfo
 }
@@ -35,18 +36,24 @@ func defaultBinaryPath() *pathInfo {
 	}
 }
 
-func New(conf *config.Config, client service.HTTPClient) *Updater {
+func New(conf *config.Config, client service.HTTPClient, chk checker.IChecker) *Updater {
 	if conf == nil {
 		def := config.DefaultUpdateConfig()
 		conf = &def
 	}
+
 	if client == nil {
 		client = service.NewHTTPClient(30 * time.Second)
 	}
 
+	if chk == nil {
+		chk = checker.New(conf, client)
+	}
+
 	controller := &Updater{
-		Config:   *conf,
+		Config:   conf,
 		Client:   client,
+		Checker:  chk,
 		response: &utils.VersionInfo{},
 		pathInfo: defaultBinaryPath(),
 	}
@@ -55,8 +62,7 @@ func New(conf *config.Config, client service.HTTPClient) *Updater {
 }
 
 func (u *Updater) checkUpdateState(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error) {
-	c := checker.New(ctx, &u.Config, u.Client)
-	resp, err := c.Execute(checkOnly)
+	resp, err := u.Checker.Execute(ctx, checkOnly)
 	if err != nil {
 		return nil, err
 	}

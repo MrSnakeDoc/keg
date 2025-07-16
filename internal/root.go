@@ -50,8 +50,8 @@ func NewRootCmd() *cobra.Command {
 
 func updateChecker(wg *sync.WaitGroup) {
 	defer wg.Done()
-	check := checker.New(context.Background(), nil, nil)
-	if _, err := check.Execute(false); err != nil {
+	check := checker.New(nil, nil)
+	if _, err := check.Execute(context.Background(), false); err != nil {
 		logger.Debug("Failed to check for updates: %v", err)
 	}
 }
