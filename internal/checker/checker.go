@@ -26,7 +26,6 @@ var (
 type CheckerController struct {
 	Config     *config.Config
 	HTTPClient service.HTTPClient
-	ctx        context.Context
 	cancel     context.CancelFunc
 	response   *utils.VersionInfo
 }
@@ -40,10 +39,10 @@ type GitHubRelease struct {
 }
 
 type IChecker interface {
-	Execute(checkOnly bool) (*utils.VersionInfo, error)
+	Execute(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error)
 }
 
-func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *CheckerController {
+func New(conf *config.Config, client service.HTTPClient) *CheckerController {
 	if conf == nil {
 		defaultConfig := config.DefaultCheckerConfig()
 		conf = &defaultConfig
@@ -56,7 +55,6 @@ func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *C
 	controller := &CheckerController{
 		Config:     conf,
 		HTTPClient: client,
-		ctx:        ctx,
 		cancel:     func() {},
 		response:   &utils.VersionInfo{},
 	}
@@ -64,7 +62,7 @@ func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *C
 	return controller
 }
 
-func (c *CheckerController) Execute(checkOnly bool) (*utils.VersionInfo, error) {
+func (c *CheckerController) Execute(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error) {
 	state, err := loadUpdateState()
 	if err != nil {
 		logger.Debug("Failed to load update state: %v", err)
@@ -74,7 +72,7 @@ func (c *CheckerController) Execute(checkOnly bool) (*utils.VersionInfo, error) 
 
 	if needsCheck {
 		var resp *utils.VersionInfo
-		resp, err = c.checkUpdate()
+		resp, err = c.checkUpdate(ctx)
 		if err != nil {
 			logger.Debug("Failed to check for updates: %v", err)
 			return nil, nil
@@ -169,7 +167,7 @@ func convertReleaseToVersionInfo(release *GitHubRelease, checksum string) *utils
 	}
 }
 
-func (c *CheckerController) fetchChecksum(release *GitHubRelease) (string, error) {
+func (c *CheckerController) fetchChecksum(ctx context.Context, release *GitHubRelease) (string, error) {
 	baseURL := c.Config.ChecksumBaseURL
 	if baseURL == "" {
 		baseURL = "https://github.com/MrSnakeDoc/keg/releases/download"
@@ -177,7 +175,7 @@ func (c *CheckerController) fetchChecksum(release *GitHubRelease) (string, error
 	// Build checksums URL
 	checksumsURL := fmt.Sprintf("%s/%s/checksums.txt", baseURL, release.TagName)
 
-	resp, err := MakeHTTPRequest(c.ctx, c.HTTPClient, checksumsURL)
+	resp, err := MakeHTTPRequest(ctx, c.HTTPClient, checksumsURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch checksums: %w", err)
 	}
@@ -192,8 +190,8 @@ func (c *CheckerController) fetchChecksum(release *GitHubRelease) (string, error
 	return utils.ParseChecksumsForBinary(string(body), release.TagName)
 }
 
-func (c *CheckerController) checkUpdate() (*utils.VersionInfo, error) {
-	resp, err := MakeHTTPRequest(c.ctx, c.HTTPClient, c.Config.VersionURL)
+func (c *CheckerController) checkUpdate(ctx context.Context) (*utils.VersionInfo, error) {
+	resp, err := MakeHTTPRequest(ctx, c.HTTPClient, c.Config.VersionURL)
 	if err != nil {
 		logger.Debug("Failed to make HTTP request: %v", err)
 		return nil, nil
@@ -207,7 +205,7 @@ func (c *CheckerController) checkUpdate() (*utils.VersionInfo, error) {
 	}
 
 	// Second call: get checksums
-	checksum, err := c.fetchChecksum(&release)
+	checksum, err := c.fetchChecksum(ctx, &release)
 	if err != nil {
 		logger.Debug("Failed to fetch checksum: %v", err)
 		checksum = "" // Fallback to empty checksum if fetching fails
