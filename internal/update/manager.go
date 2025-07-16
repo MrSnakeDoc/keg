@@ -25,6 +25,7 @@ type pathInfo struct {
 type Updater struct {
 	Config   config.Config
 	Client   service.HTTPClient
+	Checker  checker.IChecker
 	response *utils.VersionInfo
 	pathInfo *pathInfo
 }
@@ -35,18 +36,24 @@ func defaultBinaryPath() *pathInfo {
 	}
 }
 
-func New(conf *config.Config, client service.HTTPClient) *Updater {
+func New(conf *config.Config, client service.HTTPClient, chk checker.IChecker) *Updater {
 	if conf == nil {
 		def := config.DefaultUpdateConfig()
 		conf = &def
 	}
+
 	if client == nil {
 		client = service.NewHTTPClient(30 * time.Second)
+	}
+
+	if chk == nil {
+		chk = checker.New(context.Background(), conf, client)
 	}
 
 	controller := &Updater{
 		Config:   *conf,
 		Client:   client,
+		Checker:  chk,
 		response: &utils.VersionInfo{},
 		pathInfo: defaultBinaryPath(),
 	}
@@ -54,9 +61,8 @@ func New(conf *config.Config, client service.HTTPClient) *Updater {
 	return controller
 }
 
-func (u *Updater) checkUpdateState(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error) {
-	c := checker.New(ctx, &u.Config, u.Client)
-	resp, err := c.Execute(checkOnly)
+func (u *Updater) checkUpdateState(checkOnly bool) (*utils.VersionInfo, error) {
+	resp, err := u.Checker.Execute(checkOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +75,7 @@ func (u *Updater) Execute(ctx context.Context, checkOnly bool) error {
 		logger.Info("🔄 Check-only mode: bypassing timer")
 	}
 
-	resp, err := u.checkUpdateState(ctx, checkOnly)
+	resp, err := u.checkUpdateState(checkOnly)
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}

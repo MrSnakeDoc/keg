@@ -78,7 +78,7 @@ func TestUpdater_Execute_UpdateAvailable(t *testing.T) {
 	}
 
 	cfg := config.DefaultUpdateConfig()
-	updater := New(&cfg, client)
+	updater := New(&cfg, client, nil)
 	updater.pathInfo = &pathInfo{BinaryPath: filepath.Join(tmpHome, ".local", "bin", "keg")}
 
 	if err := os.MkdirAll(filepath.Dir(updater.pathInfo.BinaryPath), 0o755); err != nil {

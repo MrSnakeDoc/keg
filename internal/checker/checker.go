@@ -24,7 +24,7 @@ var (
 )
 
 type CheckerController struct {
-	Config     config.Config
+	Config     *config.Config
 	HTTPClient service.HTTPClient
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -39,6 +39,10 @@ type GitHubRelease struct {
 	PublishedAt string `json:"published_at"`
 }
 
+type IChecker interface {
+	Execute(checkOnly bool) (*utils.VersionInfo, error)
+}
+
 func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *CheckerController {
 	if conf == nil {
 		defaultConfig := config.DefaultCheckerConfig()
@@ -50,7 +54,7 @@ func New(ctx context.Context, conf *config.Config, client service.HTTPClient) *C
 	}
 
 	controller := &CheckerController{
-		Config:     *conf,
+		Config:     conf,
 		HTTPClient: client,
 		ctx:        ctx,
 		cancel:     func() {},
