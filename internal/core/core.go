@@ -236,7 +236,7 @@ func (b *Base) guardUninstall(isInstalled bool, name string, verb string) error 
 // guardUpgrade decides whether an upgrade should run.
 func (b *Base) guardUpgrade(isInstalled bool, displayName, execName string) (bool, error) {
 	if !isInstalled {
-		logger.LogError("Skipping %s: package not installed", displayName)
+		logger.Info("Skipping %s: package not installed", displayName)
 		return false, nil
 	}
 

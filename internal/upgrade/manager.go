@@ -45,8 +45,11 @@ func (u *Upgrader) Execute(args []string, checkOnly bool) error {
 		opts.Packages = args
 	}
 
-	opts.ValidateFunc = func(packageName string) bool {
-		return true
+	opts.FilterFunc = func(p *models.Package) bool {
+		if !p.Optional {
+			return true
+		}
+		return u.IsPackageInstalled(u.GetPackageName(p))
 	}
 
 	return u.HandlePackages(opts)
@@ -88,20 +91,26 @@ func (u *Upgrader) sortPackages(state *brew.BrewState) packageGroups {
 	return packageGroups{configured: configured, deps: deps}
 }
 
-func (*Upgrader) checkPackageStatus(names []string, st *brew.BrewState, title string) {
+func (u *Upgrader) checkPackageStatus(names []string, st *brew.BrewState, title string) {
 	p := printer.NewColorPrinter()
 
-	statuses := utils.Map(names, func(name string) utils.PackageStatus {
-		status := utils.PackageStatus{Name: name}
+	statuses := utils.Map(names, func(orig string) utils.PackageStatus {
+		nameForLookup, display := orig, orig
 
-		if _, ok := st.Installed[name]; !ok {
+		if pkg, found := u.FindPackage(orig); found && pkg.Optional {
+			display = fmt.Sprintf("%s %s", orig, p.Warning("(opt)"))
+		}
+
+		status := utils.PackageStatus{Name: display}
+
+		if _, ok := st.Installed[nameForLookup]; !ok {
 			status.Installed = p.Error("N")
-			status.Status = p.Error("not found")
+			status.Status = p.Warning("not installed")
 			return status
 		}
 
 		status.Installed = p.Success("Y")
-		if _, outdated := st.Outdated[name]; outdated {
+		if _, outdated := st.Outdated[nameForLookup]; outdated {
 			status.Status = p.Warning("outdated")
 		} else {
 			status.Status = p.Success("up to date")

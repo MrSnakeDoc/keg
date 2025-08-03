@@ -67,30 +67,6 @@ func Debug(msg string, args ...interface{}) {
 	}
 }
 
-// func CreateTable(headers []string) *tablewriter.Table {
-// 	const (
-// 		MinColWidth       = 20
-// 		PackageColWidth   = 20
-// 		InstalledColWidth = 10
-// 		StatusColWidth    = 15
-// 	)
-// 	table := tablewriter.NewWriter(os.Stdout)
-// 	table.Header(headers)
-// 	table.SetColumnAlignment([]int{
-// 		tablewriter.ALIGN_LEFT,
-// 		tablewriter.ALIGN_CENTER,
-// 		tablewriter.ALIGN_LEFT,
-// 	})
-// 	table.SetBorder(false)
-// 	table.SetColumnSeparator("   ")
-// 	table.SetAutoWrapText(false)
-// 	table.SetColWidth(MinColWidth)             // Minimum width
-// 	table.SetColMinWidth(0, PackageColWidth)   // Package column
-// 	table.SetColMinWidth(1, InstalledColWidth) // Installed column
-// 	table.SetColMinWidth(2, StatusColWidth)    // Status column - increased width
-// 	return table
-// }
-
 func CreateTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewTable(os.Stdout)
 
