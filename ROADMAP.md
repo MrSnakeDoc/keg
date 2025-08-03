@@ -33,20 +33,14 @@
 - [x] Polish logging
 - [x] Autoupdate of keg cli
 
-## v0.2 - Advanced usability
+## v0.2 — Quality-of-Life & Performance
+- [ ] **Remote registry support**  
+      Import packages from a hosted YAML (GitHub raw, Gist, S3…)
+- [ ] **Package search**  
+      `keg search fzf` → query Homebrew formulae and display metadata
 
-- [ ] Multi-profiles support (~/.config/keg/profiles/)
-- [ ] Custom config locations
-- [ ] Basic plugin system
-- [ ] Global `--dry-run / -n` flag
-- [ ] Centralized AppFlags struct for global CLI flags
-- [ ] Propagate dry-run flag to all commands
-- [ ] Refactor command logic to respect dry-run behavior
-- [ ] Optional: Introduce ConfigSaver interface for dry-run vs. real saves
-
-## v0.3 - Major improvements
-
-- [ ] Caching downloaded packages
-- [ ] Hooks system (pre/post install scripts)
-- [ ] Remote registries support
-- [ ] Package search
+## v1.0 — Plugin ecosystem
+- [ ] Stable plugin API (dynamically-loaded `.so` or scripts)
+- [ ] **Hook system** (pre- / post-install shell or Go plugins)
+- [ ] `keg <plugin> [...]` command injection
+- [ ] Marketplace template & official docs
