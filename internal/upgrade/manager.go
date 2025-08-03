@@ -45,8 +45,11 @@ func (u *Upgrader) Execute(args []string, checkOnly bool) error {
 		opts.Packages = args
 	}
 
-	opts.ValidateFunc = func(packageName string) bool {
-		return true
+	opts.FilterFunc = func(p *models.Package) bool {
+		if !p.Optional {
+			return true
+		}
+		return u.IsPackageInstalled(u.GetPackageName(p))
 	}
 
 	return u.HandlePackages(opts)
