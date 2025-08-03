@@ -12,7 +12,14 @@ if ! go build ./...; then
   exit 1
 fi
 
-echo "Running linters..."
+staged_go_files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$')
+
+if [ -z "$staged_go_files" ]; then
+  echo "No Go files changed. Skipping golangci-lint."
+  exit 0
+fi
+
+echo "Running linters on Go files..."
 if ! golangci-lint run --config .golangci.yml; then
   echo "Error: Linting issues detected."
   exit 1
