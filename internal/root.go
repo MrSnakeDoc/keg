@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/MrSnakeDoc/keg/internal/checker"
-	"github.com/MrSnakeDoc/keg/internal/globalconfig"
 	"github.com/MrSnakeDoc/keg/internal/logger"
 	"github.com/MrSnakeDoc/keg/internal/notifier"
 
@@ -21,17 +20,9 @@ func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "keg",
 		Short: "Package installer for development environment",
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Name() == "init" {
-				return nil
-			}
-
-			_, err := globalconfig.LoadPersistentConfig()
-			if err != nil {
-				return fmt.Errorf("keg is not initialized, please run 'keg init' first: %w", err)
-			}
-			return nil
-		},
+		Long: `Keg is a package installer designed to simplify the setup and management of development environments.
+It allows you to easily install, update, and manage packages and dependencies for your projects.`,
+		Example: `keg install lazygit asdf`,
 		Run: func(cmd *cobra.Command, _ []string) {
 			versionFlag, _ := cmd.Flags().GetBool("version")
 			if versionFlag {
