@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
@@ -64,7 +63,7 @@ func TestRunPackageManagerCommand_AllManagers(t *testing.T) {
 
 			// ── 2.  Bootstraper with MockRunner ───────────────────────────
 			mockRun := runner.NewMockRunner()
-			bs := New(&models.Config{}, mockRun)
+			bs := New(mockRun)
 
 			if err := bs.runPackageManagerCommand(tc.cmd); err != nil {
 				t.Fatalf("runPackageManagerCommand err: %v", err)

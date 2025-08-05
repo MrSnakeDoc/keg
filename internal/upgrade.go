@@ -1,8 +1,9 @@
 package internal
 
 import (
+	"github.com/MrSnakeDoc/keg/internal/middleware"
+	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/upgrade"
-	"github.com/MrSnakeDoc/keg/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +20,7 @@ Examples:
   keg upgrade --check/-c 		# Checks for available upgrades
   keg upgrade --check/-c bat 	# Checks upgrades for specific package`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := utils.PreliminaryChecks()
+			cfg, err := middleware.Get[*models.Config](cmd, middleware.CtxKeyConfig)
 			if err != nil {
 				return err
 			}

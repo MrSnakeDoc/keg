@@ -1,8 +1,9 @@
-package utils
+package middleware
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/logger"
-	"github.com/MrSnakeDoc/keg/internal/models"
+	"github.com/MrSnakeDoc/keg/internal/utils"
+	"github.com/spf13/cobra"
 )
 
 func WarningBrewMessages() {
@@ -13,16 +14,11 @@ func WarningBrewMessages() {
 	logger.Warn("Or use the command: plugins deploy")
 }
 
-func PreliminaryChecks() (*models.Config, error) {
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if !IsHomebrewInstalled() {
+func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(cmd *cobra.Command, args []string) error) error {
+	if !utils.IsHomebrewInstalled() {
 		WarningBrewMessages()
-		return cfg, nil
+		return nil
 	}
 
-	return cfg, nil
+	return next(cmd, args)
 }

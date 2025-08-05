@@ -2,7 +2,8 @@ package internal
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/add"
-	"github.com/MrSnakeDoc/keg/internal/utils"
+	"github.com/MrSnakeDoc/keg/internal/middleware"
+	"github.com/MrSnakeDoc/keg/internal/models"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,7 @@ Examples:
   keg add --optional bat starship # Add multiple optional packages
   keg add --binary=batcat bat     # Add package with different binary name (single package only)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := utils.PreliminaryChecks()
+			cfg, err := middleware.Get[*models.Config](cmd, middleware.CtxKeyConfig)
 			if err != nil {
 				return err
 			}

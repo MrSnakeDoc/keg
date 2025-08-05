@@ -1,7 +1,13 @@
 package middleware
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+)
+
+const (
+	CtxKeyConfig contextKey = "config"
 )
 
 type CommandFactory func() *cobra.Command
@@ -9,6 +15,8 @@ type CommandFactory func() *cobra.Command
 type MiddlewareFunc func(cmd *cobra.Command, args []string, next func(cmd *cobra.Command, args []string) error) error
 
 type MiddlewareChain func(factory CommandFactory) CommandFactory
+
+type contextKey string
 
 func UseMiddlewareChain(middlewares ...MiddlewareFunc) MiddlewareChain {
 	return func(factory CommandFactory) CommandFactory {
@@ -40,4 +48,20 @@ func UseMiddlewareChain(middlewares ...MiddlewareFunc) MiddlewareChain {
 			return cmd
 		}
 	}
+}
+
+func Get[T any](cmd *cobra.Command, key contextKey) (T, error) {
+	val := cmd.Context().Value(key)
+	if val == nil {
+		var zero T
+		return zero, fmt.Errorf("context value %q is nil", key)
+	}
+
+	casted, ok := val.(T)
+	if !ok {
+		var zero T
+		return zero, fmt.Errorf("context value %q has wrong type", key)
+	}
+
+	return casted, nil
 }

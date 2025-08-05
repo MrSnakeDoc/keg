@@ -12,5 +12,6 @@ func RequireConfig(cmd *cobra.Command, args []string, next func(cmd *cobra.Comma
 	if err != nil {
 		return fmt.Errorf("missing config: %w", err)
 	}
+
 	return next(cmd, args)
 }

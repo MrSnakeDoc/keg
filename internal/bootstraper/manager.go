@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/MrSnakeDoc/keg/internal/logger"
-	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
@@ -24,7 +23,6 @@ import (
 // Description:
 // This struct encapsulates the logic for installing and configuring ZSH as the default shell.
 type Bootstraper struct {
-	Config *models.Config
 	Runner runner.CommandRunner
 }
 
@@ -50,12 +48,11 @@ type packageManagerCommands struct {
 //
 // Notes:
 // If no runner is provided, a default StreamingRunner is used.
-func New(config *models.Config, r runner.CommandRunner) *Bootstraper {
+func New(r runner.CommandRunner) *Bootstraper {
 	if r == nil {
 		r = &runner.ExecRunner{}
 	}
 	return &Bootstraper{
-		Config: config,
 		Runner: r,
 	}
 }
