@@ -43,8 +43,8 @@ func (d *Deployer) Execute() error {
 		return err
 	}
 
-	// 2. Install brew plugins
-	if err := d.ExecuteBrewPlugins(); err != nil {
+	// 2. Install brew packages
+	if err := d.ExecuteBrewPackages(); err != nil {
 		return err
 	}
 
@@ -99,17 +99,17 @@ func (d *Deployer) installHomebrew() error {
 	return nil
 }
 
-func (d *Deployer) ExecuteBrewPlugins() error {
-	logger.Info("Installing brew plugins...")
+func (d *Deployer) ExecuteBrewPackages() error {
+	logger.Info("Installing brew packages...")
 
 	if d.Config == nil || len(d.Config.Packages) == 0 {
-		logger.Info("No brew plugins configured. Skipping installation.")
+		logger.Info("No brew packages configured. Skipping installation.")
 		return nil
 	}
 
 	inst := install.New(d.Config, d.Runner, nil)
 	if err := inst.Execute(nil, false, false); err != nil {
-		return fmt.Errorf("failed to install brew plugins: %w", err)
+		return fmt.Errorf("failed to install brew packages: %w", err)
 	}
 
 	return nil

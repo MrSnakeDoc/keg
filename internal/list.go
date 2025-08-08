@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/MrSnakeDoc/keg/internal/logger"
+	"github.com/MrSnakeDoc/keg/internal/middleware"
+	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/printer"
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
@@ -16,8 +18,8 @@ func NewListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List all configured packages and their status",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			cfg, err := utils.PreliminaryChecks()
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := middleware.Get[*models.Config](cmd, middleware.CtxKeyConfig)
 			if err != nil {
 				return err
 			}

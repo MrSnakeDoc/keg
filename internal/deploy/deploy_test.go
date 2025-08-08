@@ -48,7 +48,7 @@ func TestDeployer_Execute(t *testing.T) {
 		}
 	})
 
-	t.Run("install brew + plugins", func(t *testing.T) {
+	t.Run("install brew + packages", func(t *testing.T) {
 		tmp := t.TempDir()
 		utils.MustSet("PATH", tmp)
 

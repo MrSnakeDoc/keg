@@ -10,26 +10,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// LoadConfig loads the package configuration from keg.yml
-// It first reads the global config to get the packages file path
-func LoadConfig() (*models.Config, error) {
-	var config models.Config
-
-	// First, load global config to get packages file path
-	globalCfg, err := globalconfig.LoadPersistentConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// Read packages configuration file
-	err = FileReader(globalCfg.PackagesFile, "yaml", &config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read packages file %s: %w", globalCfg.PackagesFile, err)
-	}
-
-	return &config, nil
-}
-
 func SaveConfig(cfg *models.Config) error {
 	fileRights := 0o644
 	// Get global config for packages file path
