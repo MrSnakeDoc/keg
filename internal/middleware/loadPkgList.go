@@ -11,7 +11,7 @@ import (
 )
 
 // LoadConfig loads the package configuration from keg.yml
-// It first reads the global config to get the packages file path
+// It extracts the path to the packages file from the command context coming from the middleware RequireConfig
 func LoadConfig(cmd *cobra.Command) (*models.Config, error) {
 	var config models.Config
 

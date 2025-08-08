@@ -10,7 +10,7 @@ import (
 
 var ErrHomebrewMissing = errors.New("homebrew is required but not installed")
 
-func WarningBrewMessages() {
+func warningBrewMessages() {
 	logger.Warn("Please install Homebrew first using:")
 	logger.Warn("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")
 	logger.Warn("Then source your shell configuration: source ~/.zshrc")
@@ -22,7 +22,7 @@ func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(*cobra.Com
 		if cmd.Root().SilenceErrors {
 			logger.LogError(ErrHomebrewMissing.Error())
 		}
-		WarningBrewMessages()
+		warningBrewMessages()
 		return ErrHomebrewMissing
 	}
 
