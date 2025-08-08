@@ -108,7 +108,7 @@ keg deploy
 keg install [packages...]      # Install packages (default: all non-optional)
 keg install --all              # Install all packages (including optional)
 keg add bat                    # Add package to config
-git add --optional lazygit     # Add optional package to config
+keg add --optional lazygit     # Add optional package to config
 keg list                       # List all packages and their status
 keg upgrade [packages...]      # Upgrade packages (default: all)
 keg upgrade --check            # Check for available upgrades only

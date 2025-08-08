@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"os"
+	"fmt"
+	"os/exec"
 
 	"github.com/MrSnakeDoc/keg/internal/logger"
-	"github.com/MrSnakeDoc/keg/internal/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -16,11 +16,9 @@ func WarningBrewMessages() {
 	logger.Warn("Or use the command: keg deploy")
 }
 
-func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(cmd *cobra.Command, args []string) error) error {
-	if !utils.IsHomebrewInstalled() {
-		WarningBrewMessages()
-		os.Exit(1)
+func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(*cobra.Command, []string) error) error {
+	if _, err := exec.LookPath("brew"); err != nil {
+		return fmt.Errorf("homebrew is required for this command (hint: run `keg deploy` to install it)")
 	}
-
 	return next(cmd, args)
 }
