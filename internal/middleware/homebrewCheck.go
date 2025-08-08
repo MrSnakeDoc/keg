@@ -1,15 +1,16 @@
 package middleware
 
 import (
-	"fmt"
-	"os/exec"
+	"errors"
 
 	"github.com/MrSnakeDoc/keg/internal/logger"
+	"github.com/MrSnakeDoc/keg/internal/utils"
 	"github.com/spf13/cobra"
 )
 
+var ErrHomebrewMissing = errors.New("homebrew is required but not installed")
+
 func WarningBrewMessages() {
-	logger.LogError("Homebrew is required but not installed.")
 	logger.Warn("Please install Homebrew first using:")
 	logger.Warn("/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"")
 	logger.Warn("Then source your shell configuration: source ~/.zshrc")
@@ -17,13 +18,13 @@ func WarningBrewMessages() {
 }
 
 func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(*cobra.Command, []string) error) error {
-	if _, err := exec.LookPath("brew"); err != nil {
-		return fmt.Errorf(
-			"homebrew not found in PATH: %w\n"+
-				"hint: install it with `/bin/bash -c \"$(curl -fsSL "+
-				"https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"` or run `keg deploy`",
-			err,
-		)
+	if ok := utils.CommandExists("brew"); !ok {
+		if cmd.Root().SilenceErrors {
+			logger.LogError(ErrHomebrewMissing.Error())
+		}
+		WarningBrewMessages()
+		return ErrHomebrewMissing
 	}
+
 	return next(cmd, args)
 }
