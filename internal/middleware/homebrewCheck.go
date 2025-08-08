@@ -18,7 +18,12 @@ func WarningBrewMessages() {
 
 func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(*cobra.Command, []string) error) error {
 	if _, err := exec.LookPath("brew"); err != nil {
-		return fmt.Errorf("homebrew is required for this command (hint: run `keg deploy` to install it)")
+		return fmt.Errorf(
+			"homebrew not found in PATH: %w\n"+
+				"hint: install it with `/bin/bash -c \"$(curl -fsSL "+
+				"https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"` or run `keg deploy`",
+			err,
+		)
 	}
 	return next(cmd, args)
 }
