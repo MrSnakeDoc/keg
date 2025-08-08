@@ -1,21 +1,20 @@
 package internal
 
 import (
+	"github.com/MrSnakeDoc/keg/internal/middleware"
 	"github.com/spf13/cobra"
 )
 
-type CommandFactory func() *cobra.Command
-
-var defaultCommands = []CommandFactory{
-	NewBootstrapCmd,
+var defaultCommands = []middleware.CommandFactory{
 	NewInitCmd,
-	NewListCmd,
-	NewDeployCmd,
-	NewInstallCmd,
-	NewUpgradeCmd,
-	NewDeleteCmd,
-	NewAddCmd,
-	NewRemoveCmd,
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.LoadPkgList)(NewListCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig)(NewBootstrapCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.LoadPkgList)(NewDeployCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.IsHomebrewInstalled, middleware.LoadPkgList)(NewInstallCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.IsHomebrewInstalled, middleware.LoadPkgList)(NewUpgradeCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.IsHomebrewInstalled, middleware.LoadPkgList)(NewDeleteCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.LoadPkgList)(NewAddCmd),
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.LoadPkgList)(NewRemoveCmd),
 	NewUpdateCmd,
 }
 

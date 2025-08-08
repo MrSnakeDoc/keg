@@ -2,7 +2,8 @@ package internal
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/install"
-	"github.com/MrSnakeDoc/keg/internal/utils"
+	"github.com/MrSnakeDoc/keg/internal/middleware"
+	"github.com/MrSnakeDoc/keg/internal/models"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +20,7 @@ Examples:
     keg install lazygit asdf # Installs base packages + lazygit and asdf
     keg install --all        # Installs all packages, including optional ones`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := utils.PreliminaryChecks()
+			cfg, err := middleware.Get[*models.Config](cmd, middleware.CtxKeyConfig)
 			if err != nil {
 				return err
 			}

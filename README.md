@@ -132,7 +132,31 @@ Keg provides a safe self-update mechanism:
 * You can manually trigger a check with `keg update --check` (or `-c`).
 * To update to the latest release, run `keg update` (SHA256 verified).
 
+<<<<<<< HEAD
 ---
+=======
+```bash
+keg install [packages...]      # Install packages (default: all non-optional)
+keg install --all              # Install all packages (including optional)
+keg add bat                    # Add package to config
+keg add --optional lazygit     # Add optional package to config
+keg list                       # List all packages and their status
+keg upgrade [packages...]      # Upgrade packages (default: all)
+keg upgrade --check            # Check for available upgrades only
+keg delete [packages...]       # Uninstall packages
+keg delete --all               # Uninstall all packages
+keg remove [packages...]       # Remove packages from config only
+```
+
+### Update Keg itself
+
+```bash
+keg update
+```
+- Checks for new version on GitHub
+- Downloads and replaces the binary if needed
+- Verifies SHA256 checksum
+>>>>>>> e280db8 (refactor(cli): implement middleware factory and context system for shared pre-run logic (#21))
 
 ### Global options
 

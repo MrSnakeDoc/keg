@@ -1,8 +1,9 @@
 package internal
 
 import (
+	"github.com/MrSnakeDoc/keg/internal/middleware"
+	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/remove"
-	"github.com/MrSnakeDoc/keg/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +18,7 @@ Examples:
   keg remove bat                     # Remove single package
   keg remove bat starship            # Remove multiple packages`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := utils.PreliminaryChecks()
+			cfg, err := middleware.Get[*models.Config](cmd, middleware.CtxKeyConfig)
 			if err != nil {
 				return err
 			}
