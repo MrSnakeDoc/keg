@@ -1,10 +1,19 @@
 ![Go](https://img.shields.io/badge/go-1.24%2B-blue)
-[![Go Report Card](https://goreportcard.com/badge/github.com/MrSnakeDoc/keg)](https://goreportcard.com/report/github.com/MrSnakeDoc/keg)
 ![goreleaser](https://github.com/MrSnakeDoc/keg/actions/workflows/release.yml/badge.svg)
+![Go Report Card](https://goreportcard.com/badge/github.com/MrSnakeDoc/keg)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 # Keg CLI
 
-A modern, opinionated CLI to automate and manage your Linux development environment with style. 
+A modern, opinionated CLI to automate and manage your Linux development environment with style.
+Reproducible, idempotent, and fast.
+
+---
+
+## Why Keg Exists?
+
+- Reinstalling Linux machines over and over wastes time. Instead of another brittle Bash script, I wanted an idempotent, reproducible, portable CLI: one `keg deploy` and my dev environment is back on Ubuntu, Fedora, or Arch.
+- Keg does not replace Homebrew or Ansible; it’s a small, fast layer focused on developer experience—centralized config, a safe self-update path, and a clean, testable Go codebase.
 
 ---
 
@@ -32,10 +41,10 @@ Table of Contents
 
 - 🚀 ZSH auto-installation and configuration
 - 🍺 Homebrew auto-installation and management
-- 📋 Package management (install, upgrade, remove, list, add, delete, remove)
-- ⚡ Optional package support
+- 📋 Package management (install, upgrade, delete, list, add, remove)
+- ⚡ Optional packages
 - 🗄️ Centralized config and state management
-- 🔄 Automatic CLI self-update (via GitHub Releases)
+- 🔄 Automatic self-update (via GitHub Releases, with SHA256 verification)
 - ❌ Robust error handling and clear user feedback
 - 🧪 Mockable runners and HTTP clients for easy testing
 
@@ -43,8 +52,8 @@ Table of Contents
 
 ## 🖥️ Prerequisites
 
-- Linux (Ubuntu, Fedora, Arch tested)
-- Go 1.21+ (for building from source)
+- Linux (tested on Ubuntu, Fedora, Arch)
+- Go 1.24+ (to build from source)
 - Homebrew (auto-installed if missing)
 
 ---
@@ -56,6 +65,13 @@ Table of Contents
 ```bash
 curl -fsSL https://raw.githubusercontent.com/MrSnakeDoc/keg/main/scripts/install.sh | bash -
 ```
+
+ * Security & integrity
+
+    - The installer fetches artifacts from official GitHub Releases only.
+    - Each release publishes checksums.txt (and optionally a signature).
+    - The script verifies the downloaded artifact against checksums.txt.
+    - No third-party mirrors and no telemetry.
 
 ### From Source
 
@@ -81,85 +97,88 @@ packages:
   - command: bat
   - command: lazygit
     optional: true
+  - command: ripgrep
+    binary: rg
+    optional: true
 ```
 
 ---
 
 ## 🛠️ Usage
 
-### Bootstrap your shell
+| Command                                  | What it does                                 |
+| ---------------------------------------- | -------------------------------------------- |
+| `keg bootstrap`                          | Install ZSH if missing and set it as default |
+| `keg deploy`                             | Install Homebrew if needed + all packages    |
+| `keg install [pkgs...]`                  | Install packages (default: all non-optional) |
+| `keg install --all`                      | Install all packages (including optional)    |
+| `keg add bat`                            | Add package to `keg.yml`                     |
+| `keg add --optional ripgrep --binary rg` | Add optional package with custom binary      |
+| `keg list`                               | List packages and their status               |
+| `keg upgrade [pkgs...]`                  | Upgrade packages (default: all)              |
+| `keg upgrade --check` or `-c`            | Only check for available upgrades            |
+| `keg delete [pkgs...]`                   | Uninstall packages from the system           |
+| `keg delete --all`                       | Uninstall all packages                       |
+| `keg remove [pkgs...]`                   | Remove packages from config only             |
+| `keg --version`                          | Show CLI version                             |
+| `keg --no-update-check`                  | Skip update check (for scripting)            |
 
-```bash
-keg bootstrap
-```
-- Installs ZSH if missing
-- Sets ZSH as default shell
 
-### Deploy your environment
+## 🔄 Update Keg itself
 
-```bash
-keg deploy
-```
-- Installs Homebrew if missing
-- Installs all packages from config
+Keg provides a safe self-update mechanism:
 
-### Package management
+* Every 24 hours it checks GitHub for a new version and notifies you.
+* You can manually trigger a check with `keg update --check` (or `-c`).
+* To update to the latest release, run `keg update` (SHA256 verified).
 
-```bash
-keg install [packages...]      # Install packages (default: all non-optional)
-keg install --all              # Install all packages (including optional)
-keg add bat                    # Add package to config
-git add --optional lazygit     # Add optional package to config
-keg list                       # List all packages and their status
-keg upgrade [packages...]      # Upgrade packages (default: all)
-keg upgrade --check            # Check for available upgrades only
-keg delete [packages...]       # Uninstall packages
-keg delete --all               # Uninstall all packages
-keg remove [packages...]       # Remove packages from config only
-```
-
-### Update Keg itself
-
-```bash
-keg update
-```
-- Checks for new version on GitHub
-- Downloads and replaces the binary if needed
-- Verifies SHA256 checksum
+---
 
 ### Global options
 
 ```bash
-keg --version                  # Show CLI version
-keg -f config.yml              # Use a specific config file
-keg --no-update-check          # Skip update check (for scripting)
+keg --version               # Show CLI version
+keg --no-update-check       # Skip update check (for scripting)
 ```
 
 ---
 
 ## 🧪 Testing & Development
 
-- All runners and HTTP clients are mockable for robust testing
-- Use `make build` to build the CLI
-- Use `make comp` to generate ZSH completions
-- Tests use temp dirs and fake clients to avoid side effects
+* Runners and HTTP clients are mockable for robust tests.
+* `make build` to build the CLI.
+* `make comp` to generate ZSH completions.
+* Tests use temp dirs and fake clients to avoid side effects.
+
+---
+
+## 🧱 Architecture
+
+**High level:**
+
+* **CLI / Commands**: thin cobra-style commands that delegate to services.
+* **Planner**: computes idempotent actions (install/upgrade/delete) from `keg.yml`.
+* **Runner**: executes actions via a small interface (`Exec(ctx, name, args...)`), easily mockable.
+* **Providers**: distro-specific package providers (brew/apt/dnf/pacman).
+* **Updater**: checks GitHub Releases, verifies SHA256, performs atomic binary replacement.
+* **Config & State**: XDG paths; human-readable config; no telemetry.
 
 ---
 
 ## 📝 Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for planned features and progress.
+See [ROADMAP.md](./ROADMAP.md).
 
 ---
 
 ## 📄 License
 
-MIT License. See [LICENSE](./LICENSE) for details.
+MIT License — see [LICENSE](./LICENSE).
 
 ---
 
 ## 💡 Tips
 
-- Keg is Linux-only by design. Mac support is possible but not tested. Windows users: WSL is your friend.
-- All config/state is local and human-readable. No cloud, no telemetry, no bullshit.
-- If you break it, you get to keep both pieces. PRs welcome!
+* Linux-only by design. macOS might work via Linuxbrew but is not tested. Windows: use WSL. (Mostly because I don't own a Mac and I am not willing to pay a undescent amount of money for a device that I will use only to test Keg. No plans to support Windows natively because Windows is a spyware not an operating system.)
+* Local, human-readable config/state. No cloud, no telemetry, no nonsense.
+* If you break it, you get to keep both pieces. PRs welcome!
