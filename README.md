@@ -179,6 +179,6 @@ MIT License — see [LICENSE](./LICENSE).
 
 ## 💡 Tips
 
-* Linux-only by design. macOS might work via Linuxbrew but is not tested. Windows: use WSL. (Mostly because I don't own a Mac and I am not willing to pay a undescent amount of money for a device that I will use only to test Keg. No plans to support Windows natively because Windows is a spyware not an operating system.)
+* Linux-only by design. macOS might work via Linuxbrew but is not tested. Windows: use WSL. (Mostly because I don't own a Mac and I am not willing to pay an indecent amount of money for a device that I will use only to test Keg. No plans to support Windows natively because Windows is a spyware not an operating system.)
 * Local, human-readable config/state. No cloud, no telemetry, no nonsense.
 * If you break it, you get to keep both pieces. PRs welcome!
