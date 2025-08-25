@@ -31,13 +31,19 @@ Examples:
 				return err
 			}
 
+			all, err := cmd.Flags().GetBool("all")
+			if err != nil {
+				return err
+			}
+
 			upgrade := upgrade.New(cfg, nil)
-			return upgrade.Execute(args, checkOnly)
+			return upgrade.Execute(args, checkOnly, all)
 		},
 	}
 
 	// Add flags
 	cmd.Flags().BoolP("check", "c", false, "Check for available updates without installing them")
+	cmd.Flags().BoolP("all", "a", false, "Upgrade all packages, including dependencies")
 
 	return cmd
 }
