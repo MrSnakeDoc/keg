@@ -79,6 +79,7 @@ type PackageHandlerOptions struct {
 	Packages     []string
 	FilterFunc   func(*models.Package) bool
 	ValidateFunc func(string) bool
+	AllowAdHoc   bool
 }
 
 // NewBase instantiates a new Base struct.
@@ -180,6 +181,7 @@ func DefaultPackageHandlerOptions(action PackageAction) PackageHandlerOptions {
 		Action:       action,
 		FilterFunc:   func(p *models.Package) bool { return !p.Optional },
 		ValidateFunc: func(string) bool { return true },
+		AllowAdHoc:   false,
 	}
 }
 
@@ -197,7 +199,7 @@ func DefaultPackageHandlerOptions(action PackageAction) PackageHandlerOptions {
 func (b *Base) HandlePackages(opts PackageHandlerOptions) error {
 	if len(opts.Packages) > 0 {
 		for _, pkgName := range opts.Packages {
-			if err := b.handleSelectedPackage(opts.Action, pkgName, opts.ValidateFunc); err != nil {
+			if err := b.handleSelectedPackage(opts.Action, pkgName, opts.ValidateFunc, opts.AllowAdHoc); err != nil {
 				return fmt.Errorf("failed to %s package %s: %w", opts.Action.ActionVerb, pkgName, err)
 			}
 		}
@@ -209,20 +211,27 @@ func (b *Base) HandlePackages(opts PackageHandlerOptions) error {
 			continue
 		}
 		name := b.GetPackageName(&pkg)
-		if err := b.handleSelectedPackage(opts.Action, name, opts.ValidateFunc); err != nil {
+		if err := b.handleSelectedPackage(opts.Action, name, opts.ValidateFunc, opts.AllowAdHoc); err != nil {
 			return fmt.Errorf("failed to %s package %s: %w", opts.Action.ActionVerb, name, err)
 		}
 	}
 	return nil
 }
 
-// resolvePackage returns the config entry or a typed error.
-func (b *Base) resolvePackage(name string) (*models.Package, error) {
-	pkg, ok := b.FindPackage(name)
-	if !ok {
-		return nil, fmt.Errorf("%w: %s", ErrPkgNotFound, name)
+// resolvePackageScoped behaves like resolvePackage, but if not found in the
+// manifest and allowAdHoc is true, it will accept locally installed packages
+// by synthesizing a minimal package definition (Command = name).
+func (b *Base) resolvePackageScoped(name string, allowAdHoc bool) (*models.Package, error) {
+	if pkg, ok := b.FindPackage(name); ok {
+		return pkg, nil
 	}
-	return pkg, nil
+	if allowAdHoc && b.IsPackageInstalled(name) {
+		logger.Debug("Package %s not found in config; treating as ad-hoc", name)
+		return &models.Package{
+			Command: name,
+		}, nil
+	}
+	return nil, fmt.Errorf("%w: %s", ErrPkgNotFound, name)
 }
 
 // guardUninstall aborts if we try to uninstall something not present.
@@ -270,9 +279,10 @@ func (b *Base) handleSelectedPackage(
 	action PackageAction,
 	humanName string,
 	isValid func(string) bool,
+	allowAdHoc bool,
 ) error {
 	// 1. Resolve & canonicalise
-	pkg, err := b.resolvePackage(humanName)
+	pkg, err := b.resolvePackageScoped(humanName, allowAdHoc)
 	if err != nil {
 		return err
 	}

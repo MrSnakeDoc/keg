@@ -31,9 +31,9 @@ func New(config *models.Config, r runner.CommandRunner) *Upgrader {
 	}
 }
 
-func (u *Upgrader) Execute(args []string, checkOnly bool) error {
+func (u *Upgrader) Execute(args []string, checkOnly bool, all bool) error {
 	if checkOnly {
-		return u.CheckUpgrades(args)
+		return u.CheckUpgrades(args, all)
 	}
 
 	opts := core.DefaultPackageHandlerOptions(core.PackageAction{
@@ -41,8 +41,31 @@ func (u *Upgrader) Execute(args []string, checkOnly bool) error {
 		ActionVerb: "upgrade",
 	})
 
+	opts.AllowAdHoc = all
+
 	if len(args) > 0 {
 		opts.Packages = args
+	} else if all {
+		configured := make([]string, 0, len(u.Config.Packages))
+		configuredSet := make(map[string]struct{}, len(u.Config.Packages))
+		for i := range u.Config.Packages {
+			name := u.GetPackageName(&u.Config.Packages[i])
+			configured = append(configured, name)
+			configuredSet[name] = struct{}{}
+		}
+
+		st, err := brew.FetchState()
+		if err != nil {
+			return err
+		}
+		deps := make([]string, 0, len(st.Installed))
+		for name := range st.Installed {
+			if _, ok := configuredSet[name]; !ok {
+				deps = append(deps, name)
+			}
+		}
+
+		opts.Packages = append(append([]string{}, configured...), deps...)
 	}
 
 	opts.FilterFunc = func(p *models.Package) bool {
@@ -121,23 +144,36 @@ func (u *Upgrader) checkPackageStatus(names []string, st *brew.BrewState, title 
 	utils.CreateStatusTable(title, statuses)
 }
 
-func (u *Upgrader) CheckUpgrades(args []string) error {
+func (u *Upgrader) CheckUpgrades(args []string, all bool) error {
 	state, err := brew.FetchState()
 	if err != nil {
 		return err
 	}
 
-	if len(args) == 1 {
-		pkg, found := u.FindPackage(args[0])
-		if !found {
-			return fmt.Errorf("package %s not found in config", args[0])
+	if len(args) > 0 {
+		for _, name := range args {
+			lookup := name
+
+			if pkg, found := u.FindPackage(name); found {
+				lookup = pkg.Command
+			}
+
+			if _, ok := state.Installed[lookup]; !ok {
+				return fmt.Errorf("package %s is not installed", name)
+			}
+			if err := u.checkSinglePackage(lookup, state.Outdated); err != nil {
+				return err
+			}
 		}
-		return u.checkSinglePackage(pkg.Command, state.Outdated)
+		return nil
 	}
 
 	groups := u.sortPackages(state)
 	u.checkPackageStatus(groups.configured, state, "")
-	u.checkPackageStatus(groups.deps, state, "Dependencies:")
+
+	if all {
+		u.checkPackageStatus(groups.deps, state, "Dependencies:")
+	}
 
 	return nil
 }
