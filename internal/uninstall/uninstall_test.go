@@ -1,4 +1,4 @@
-package install
+package uninstall
 
 import (
 	"testing"
@@ -7,56 +7,41 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/runner"
 )
 
+// Table-driven test cases for Uninstaller.Execute
 var executeTestCases = []struct {
 	name          string
 	args          []string
 	all           bool
-	mockError     error
-	add           bool
-	optional      bool
-	binary        string
+	remove        bool
+	force         bool
 	expectedError string
 }{
 	{
-		name: "No args standard execution",
-		args: []string{},
-		all:  false,
+		name: "Uninstall specific installed package",
+		args: []string{"pkg1"},
 	},
 	{
-		name: "With args",
-		args: []string{"pkg1", "pkg2"},
-		all:  false,
-	},
-	{
-		name: "With all flag",
-		args: []string{},
+		name: "Uninstall all installed packages",
 		all:  true,
 	},
 	{
-		name:     "Install new package with --add",
-		args:     []string{"pkg4"},
-		add:      true,
-		optional: false,
-		binary:   "",
+		name:   "Uninstall with remove flag (specific)",
+		args:   []string{"pkg2"},
+		remove: true,
 	},
 	{
-		name:     "Install new optional package with --add and --optional",
-		args:     []string{"pkg7"},
-		add:      true,
-		optional: true,
-	},
-	{
-		name:   "Install new package with custom binary",
-		args:   []string{"pkg8"},
-		add:    true,
-		binary: "bin8",
+		name:   "Uninstall with remove and all",
+		all:    true,
+		remove: true,
+		force:  true,
 	},
 }
 
-func TestInstaller_Execute(t *testing.T) {
+func TestUninstaller_Execute(t *testing.T) {
 	oldSave := saveConfig
 	saveConfig = func(_ *models.Config) error { return nil }
 	defer func() { saveConfig = oldSave }()
+
 	for _, tt := range executeTestCases {
 		t.Run(tt.name, func(t *testing.T) {
 			mockRunner := runner.NewMockRunner()
@@ -70,9 +55,9 @@ func TestInstaller_Execute(t *testing.T) {
 				},
 			}
 
-			installer := New(config, mockRunner)
+			uninstaller := New(config, mockRunner)
 
-			err := installer.Execute(tt.args, tt.all, tt.add, tt.optional, tt.binary)
+			err := uninstaller.Execute(tt.args, tt.all, tt.remove, tt.force)
 
 			if tt.expectedError != "" {
 				if err == nil {

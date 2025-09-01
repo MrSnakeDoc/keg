@@ -83,8 +83,10 @@ func FetchOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
 	return &outdated, nil
 }
 
-func FetchState() (*BrewState, error) {
-	r := &runner.ExecRunner{}
+func FetchState(r runner.CommandRunner) (*BrewState, error) {
+	if r == nil {
+		r = &runner.ExecRunner{}
+	}
 
 	installed, err := utils.MapInstalledPackagesWith(r, func(pkg string) (string, string) {
 		return pkg, pkg

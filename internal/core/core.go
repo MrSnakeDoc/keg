@@ -11,10 +11,7 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
-var (
-	ErrPkgNotFound     = errors.New("package not found in configuration")
-	ErrPkgNotInstalled = errors.New("package not installed")
-)
+var ErrPkgNotFound = errors.New("package not found in configuration")
 
 var pastTense = map[string]string{
 	"install":   "installed",
@@ -237,7 +234,8 @@ func (b *Base) resolvePackageScoped(name string, allowAdHoc bool) (*models.Packa
 // guardUninstall aborts if we try to uninstall something not present.
 func (b *Base) guardUninstall(isInstalled bool, name string, verb string) error {
 	if verb == "uninstall" && !isInstalled {
-		return fmt.Errorf("%w: %s", ErrPkgNotInstalled, name)
+		logger.Info("Skipping %s: package not installed", name)
+		return nil
 	}
 	return nil
 }
@@ -249,7 +247,7 @@ func (b *Base) guardUpgrade(isInstalled bool, displayName, execName string) (boo
 		return false, nil
 	}
 
-	state, err := brew.FetchState()
+	state, err := brew.FetchState(b.Runner)
 	if err != nil {
 		return false, fmt.Errorf("failed to check update status: %w", err)
 	}
@@ -325,7 +323,7 @@ func (b *Base) handleSelectedPackage(
 
 	// 4. Post-run housekeeping
 	if action.ActionVerb == "upgrade" {
-		if _, err := brew.FetchOutdatedPackages(&runner.ExecRunner{}); err != nil {
+		if _, err := brew.FetchOutdatedPackages(b.Runner); err != nil {
 			logger.LogError("Failed to update outdated cache: %v", err)
 		}
 	}

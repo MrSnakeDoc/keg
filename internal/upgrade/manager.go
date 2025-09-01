@@ -54,7 +54,7 @@ func (u *Upgrader) Execute(args []string, checkOnly bool, all bool) error {
 			configuredSet[name] = struct{}{}
 		}
 
-		st, err := brew.FetchState()
+		st, err := brew.FetchState(u.Runner)
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func (u *Upgrader) checkPackageStatus(names []string, st *brew.BrewState, title 
 }
 
 func (u *Upgrader) CheckUpgrades(args []string, all bool) error {
-	state, err := brew.FetchState()
+	state, err := brew.FetchState(u.Runner)
 	if err != nil {
 		return err
 	}
