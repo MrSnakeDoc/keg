@@ -23,8 +23,8 @@ var (
 	mu       sync.RWMutex
 	zlog     *zap.SugaredLogger
 	out      io.Writer = os.Stdout
-	p                  = printer.NewColorPrinter()
-	curLevel           = zapcore.InfoLevel
+	p        *printer.ColorPrinter
+	curLevel = zapcore.InfoLevel
 	ready    atomic.Bool
 )
 
@@ -55,7 +55,10 @@ func Configure(opts Options) {
 
 	base := zap.New(core)
 	zlog = base.Sugar()
-	p = printer.NewColorPrinter()
+
+	if p == nil {
+		p = printer.NewColorPrinter()
+	}
 
 	ready.Store(true)
 }
@@ -108,16 +111,16 @@ func Out() io.Writer {
 // ---- Public logging API (kept stable) ----
 
 func Info(msg string, args ...interface{}) {
-	if !ready.Load() {
+	if !ensureReady() {
 		return
-	} // logger not ready yet: no-op
+	}
 	mu.RLock()
 	zlog.Infof(p.Info("✨ "+msg, args...))
 	mu.RUnlock()
 }
 
 func Success(msg string, args ...interface{}) {
-	if !ready.Load() {
+	if !ensureReady() {
 		return
 	}
 	mu.RLock()
@@ -126,7 +129,7 @@ func Success(msg string, args ...interface{}) {
 }
 
 func LogError(msg string, args ...interface{}) {
-	if !ready.Load() {
+	if !ensureReady() {
 		return
 	}
 	mu.RLock()
@@ -135,7 +138,7 @@ func LogError(msg string, args ...interface{}) {
 }
 
 func Warn(msg string, args ...interface{}) {
-	if !ready.Load() {
+	if !ensureReady() {
 		return
 	}
 	mu.RLock()
@@ -144,6 +147,9 @@ func Warn(msg string, args ...interface{}) {
 }
 
 func WarnInline(msg string, args ...interface{}) {
+	if !ensureReady() {
+		return
+	}
 	// inline write directly to out to preserve non-line break semantics
 	mu.RLock()
 	defer mu.RUnlock()
@@ -154,7 +160,7 @@ func WarnInline(msg string, args ...interface{}) {
 }
 
 func Debug(msg string, args ...interface{}) {
-	if !ready.Load() {
+	if !ensureReady() {
 		return
 	}
 	mu.RLock()
@@ -192,4 +198,16 @@ func parseLevel(s string) zapcore.Level {
 		curLevel = zapcore.InfoLevel
 	}
 	return curLevel
+}
+
+// ---- helpers ----
+
+func ensureReady() bool {
+	if !ready.Load() {
+		return false
+	}
+	if p == nil || zlog == nil {
+		return false
+	}
+	return true
 }

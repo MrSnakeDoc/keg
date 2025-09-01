@@ -108,7 +108,7 @@ func (rv *Resolver) ResolveBulk(ctx context.Context, names []string) (map[string
 	ctx, cancel := context.WithTimeout(ctx, rv.GlobalTimeout)
 	defer cancel()
 
-	// chunks de 50
+	// chunk of 50 and refresh in parallel
 	chunks := chunkStrings(toRefresh, max(1, rv.MaxBatchSize))
 
 	refreshed, errs := rv.refreshChunksParallel(ctx, chunks)
@@ -203,8 +203,7 @@ func (rv *Resolver) resolveChunk(ctx context.Context, names []string) (map[strin
 	}
 	// Build command
 	args := append([]string{"info", "--json=v2"}, names...)
-	// NOTE: runner.Mode zero-value is assumed to be the default mode in your runner impl.
-	// If you have a specific mode (e.g., runner.ModeStdout), replace 'var mode runner.Mode' accordingly.
+	// Use explicit runner.ModeStdout for clarity and to avoid zero-value assumptions.
 	var mode runner.Mode
 	chCtx, cancel := context.WithTimeout(ctx, rv.ChunkTimeout)
 	defer cancel()
