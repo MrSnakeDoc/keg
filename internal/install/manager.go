@@ -1,135 +1,57 @@
 package install
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/MrSnakeDoc/keg/internal/core"
 	"github.com/MrSnakeDoc/keg/internal/logger"
+	"github.com/MrSnakeDoc/keg/internal/manifest"
 	"github.com/MrSnakeDoc/keg/internal/models"
-	"github.com/MrSnakeDoc/keg/internal/prompter"
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
-var saveConfig = utils.SaveConfig
-
 type Installer struct {
 	*core.Base
-	prompt prompter.Prompter
 }
 
-func New(config *models.Config, r runner.CommandRunner, p prompter.Prompter) *Installer {
+var saveConfig = utils.SaveConfig
+
+func New(config *models.Config, r runner.CommandRunner) *Installer {
 	if r == nil {
 		r = &runner.ExecRunner{}
 	}
 
-	if p == nil {
-		p = prompter.New(os.Stdin, os.Stdout)
-	}
-
 	return &Installer{
-		Base:   core.NewBase(config, r),
-		prompt: p,
+		Base: core.NewBase(config, r),
 	}
 }
 
-func (i *Installer) Execute(args []string, all bool, interactive bool) error {
-	// Check if we need interactive package addition
-	if interactive && len(args) > 0 {
-		var err error
-		args, err = i.handleMissingPackages(args)
+func (i *Installer) Execute(args []string, all bool, add bool, optional bool, binary string) error {
+	// 2) Optionally update manifest first
+	if add {
+		// manifest.AddPackages mutates cfg in-memory
+		modified, err := manifest.AddPackages(i.Config, i.FindPackage, args, binary, optional)
 		if err != nil {
 			return err
 		}
-		if len(args) == 0 && !all {
-			return nil
+		if modified {
+			if err := saveConfig(i.Config); err != nil {
+				return err
+			}
+			logger.Success("Configuration updated successfully")
 		}
 	}
 
+	// 3) Build opts and run
 	opts := core.DefaultPackageHandlerOptions(core.PackageAction{
 		Name:        "Installing",
 		ActionVerb:  "install",
 		SkipMessage: "%s is already installed",
 	})
-
-	if len(args) > 0 && all {
-		return fmt.Errorf("you cannot use --all with specific packages")
-	}
-
 	if len(args) > 0 {
 		opts.Packages = args
 	}
-
 	if all {
 		opts.FilterFunc = func(_ *models.Package) bool { return true }
 	}
-
 	return i.HandlePackages(opts)
-}
-
-// handleMissingPackages checks if packages exist and interactively adds them if needed
-func (i *Installer) handleMissingPackages(pkgs []string) ([]string, error) {
-	filtered := pkgs[:0]
-	anyAdded := false
-
-	for _, name := range pkgs {
-		if _, found := i.FindPackage(name); found {
-			filtered = append(filtered, name)
-			continue
-		}
-
-		if i.promptAndAddPackage(name) {
-			filtered = append(filtered, name)
-			anyAdded = true
-		}
-	}
-
-	if anyAdded {
-		if err := saveConfig(i.Config); err != nil {
-			return nil, err
-		}
-	}
-
-	return filtered, nil
-}
-
-// promptAndAddPackage asks the user if they want to add a missing package
-func (i *Installer) promptAndAddPackage(name string) bool {
-	logger.Info("Package '%s' not found in your config.", name)
-
-	ok, err := i.prompt.Confirm("Do you want to add it now?")
-	if err != nil {
-		logger.LogError("Prompt failed: %v", err)
-		return false
-	}
-	if !ok {
-		logger.Info("Skipping addition of '%s'", name)
-		return false
-	}
-
-	binary, err := i.prompt.Prompt(fmt.Sprintf("Binary name (leave empty if same as '%s'): ", name))
-	if err != nil {
-		logger.LogError("Prompt failed: %v", err)
-		return false
-	}
-	if binary == "" {
-		binary = name
-	}
-
-	optional, err := i.prompt.Confirm("Is this an optional package?")
-	if err != nil {
-		logger.LogError("Prompt failed: %v", err)
-		return false
-	}
-
-	// Add to config
-	i.Config.Packages = append(i.Config.Packages, models.Package{
-		Command:  name,
-		Binary:   binary,
-		Optional: optional,
-	})
-
-	logger.Success("Added '%s' to your config", name)
-	return true
 }

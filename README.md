@@ -41,7 +41,7 @@ Table of Contents
 
 - 🚀 ZSH auto-installation and configuration
 - 🍺 Homebrew auto-installation and management
-- 📋 Package management (install, upgrade, delete, list, add, remove)
+- 📋 Package management (install, upgrade, delete, list)
 - ⚡ Optional packages
 - 🗄️ Centralized config and state management
 - 🔄 Automatic self-update (via GitHub Releases, with SHA256 verification)
@@ -106,22 +106,26 @@ packages:
 
 ## 🛠️ Usage
 
-| Command                                  | What it does                                 |
-| ---------------------------------------- | -------------------------------------------- |
-| `keg bootstrap`                          | Install ZSH if missing and set it as default |
-| `keg deploy`                             | Install Homebrew if needed + all packages    |
-| `keg install [pkgs...]`                  | Install packages (default: all non-optional) |
-| `keg install --all`                      | Install all packages (including optional)    |
-| `keg add bat`                            | Add package to `keg.yml`                     |
-| `keg add --optional ripgrep --binary rg` | Add optional package with custom binary      |
-| `keg list`                               | List packages and their status               |
-| `keg upgrade [pkgs...]`                  | Upgrade packages (default: all)              |
-| `keg upgrade --check` or `-c`            | Only check for available upgrades            |
-| `keg delete [pkgs...]`                   | Uninstall packages from the system           |
-| `keg delete --all`                       | Uninstall all packages                       |
-| `keg remove [pkgs...]`                   | Remove packages from config only             |
-| `keg --version`                          | Show CLI version                             |
-| `keg --no-update-check`                  | Skip update check (for scripting)            |
+| Command                              | What it does                                               |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `keg bootstrap`                      | Install ZSH if missing and set it as default               |
+| `keg deploy`                         | Install Homebrew if needed + all packages                  |
+| `keg install [pkgs...]`              | Install packages (default: all non-optional from manifest) |
+| `keg install --all`                  | Install all packages (including optional)                  |
+| `keg install foo --add`              | Install and add a package to `keg.yml`                     |
+| `keg install foo --add --optional`   | Install and add an optional package                        |
+| `keg install foo --add --binary bar` | Install and add a package with custom binary name          |
+| `keg list`                           | List packages and their status                             |
+| `keg upgrade [pkgs...]`              | Upgrade packages (default: all in manifest)                |
+| `keg upgrade --check` or `-c`        | Only check for available upgrades                          |
+| `keg upgrade --all`                  | Upgrade all packages (manifest + ad-hoc installed pkgs)    |
+| `keg delete [pkgs...]`               | Uninstall packages from the system                         |
+| `keg delete --all`                   | Uninstall all packages listed in manifest                  |
+| `keg delete foo --remove`            | Uninstall and remove package from manifest                 |
+| `keg delete --all --remove --force`  | Purge system + manifest (⚠ destructive)                    |
+| `keg --version`                      | Show CLI version                                           |
+| `keg --no-update-check`              | Skip update check (for scripting)                          |
+
 
 
 ## 🔄 Update Keg itself
@@ -132,31 +136,7 @@ Keg provides a safe self-update mechanism:
 * You can manually trigger a check with `keg update --check` (or `-c`).
 * To update to the latest release, run `keg update` (SHA256 verified).
 
-<<<<<<< HEAD
 ---
-=======
-```bash
-keg install [packages...]      # Install packages (default: all non-optional)
-keg install --all              # Install all packages (including optional)
-keg add bat                    # Add package to config
-keg add --optional lazygit     # Add optional package to config
-keg list                       # List all packages and their status
-keg upgrade [packages...]      # Upgrade packages (default: all)
-keg upgrade --check            # Check for available upgrades only
-keg delete [packages...]       # Uninstall packages
-keg delete --all               # Uninstall all packages
-keg remove [packages...]       # Remove packages from config only
-```
-
-### Update Keg itself
-
-```bash
-keg update
-```
-- Checks for new version on GitHub
-- Downloads and replaces the binary if needed
-- Verifies SHA256 checksum
->>>>>>> e280db8 (refactor(cli): implement middleware factory and context system for shared pre-run logic (#21))
 
 ### Global options
 
@@ -173,6 +153,7 @@ keg --no-update-check       # Skip update check (for scripting)
 * `make build` to build the CLI.
 * `make comp` to generate ZSH completions.
 * Tests use temp dirs and fake clients to avoid side effects.
+* Flag validation (invalid combinations) is covered by dedicated CLI tests.
 
 ---
 

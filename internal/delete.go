@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"github.com/MrSnakeDoc/keg/internal/errs"
 	"github.com/MrSnakeDoc/keg/internal/middleware"
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/uninstall"
@@ -30,15 +31,38 @@ Examples:
 				return err
 			}
 
+			removeFlag, err := cmd.Flags().GetBool("remove")
+			if err != nil {
+				return err
+			}
+
+			forceFlag, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+
+			// Validate flags combo
+			if !allFlag && len(args) == 0 {
+				return middleware.FlagComboError(errs.ProvidePkgsOrAll, "Delete", "delete")
+			}
+			if allFlag && len(args) > 0 {
+				return middleware.FlagComboError(errs.AllWithNamedPackages, "Delete", "delete", "")
+			}
+			if removeFlag && allFlag && !forceFlag {
+				return middleware.FlagComboError(errs.AllWithRemoveNeedsForce)
+			}
+
 			// Create uninstaller
 			uninstall := uninstall.New(cfg, nil)
 
-			return uninstall.Execute(args, allFlag)
+			return uninstall.Execute(args, allFlag, removeFlag, forceFlag)
 		},
 	}
 
 	// Add flags
-	cmd.Flags().BoolP("all", "a", false, "Delete all packages from config")
+	cmd.Flags().BoolP("all", "a", false, "Delete all packages listed in keg.yml (system only)")
+	cmd.Flags().BoolP("remove", "r", false, "Also remove package(s) from keg.yml after uninstall")
+	cmd.Flags().BoolP("force", "f", false, "Required with --all --remove to purge the manifest")
 
 	return cmd
 }

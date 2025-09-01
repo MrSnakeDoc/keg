@@ -107,8 +107,8 @@ func (d *Deployer) ExecuteBrewPackages() error {
 		return nil
 	}
 
-	inst := install.New(d.Config, d.Runner, nil)
-	if err := inst.Execute(nil, false, false); err != nil {
+	inst := install.New(d.Config, d.Runner)
+	if err := inst.Execute(nil, false, false, false, ""); err != nil {
 		return fmt.Errorf("failed to install brew packages: %w", err)
 	}
 

@@ -20,6 +20,10 @@ lintf:
 	@echo "🔍 Running linters..."
 	@golangci-lint run --config .golangci.yml --fix
 
+test:
+	@echo "🧪 Running tests..."
+	@go test -count=1 ./...
+
 comp:
 	@echo "🔧 Generating ZSH completion..."
 	@mkdir -p ~/dotfiles/.config/zsh/completion
