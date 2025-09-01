@@ -301,3 +301,43 @@ func TestExecute_OptionalNotInstalled_IsSkipped(t *testing.T) {
 		t.Fatalf("expected no 'brew upgrade' calls, got: %#v", mr.Commands)
 	}
 }
+
+func TestExecute_AdHoc_Targeted(t *testing.T) {
+	withIsolatedState(t)
+	cfg := models.Config{Packages: []models.Package{{Command: "foo"}}}
+	mr := runner.NewMockRunner()
+
+	primeInstalled(mr, "foo", "dep")
+	writeOutdatedCache(t, map[string][2]string{
+		"dep": {"0.9.0", "1.0.0"},
+	})
+
+	up := New(&cfg, mr)
+
+	if err := up.Execute([]string{"dep"}, false, false); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !sawUpgrade(mr, "dep") {
+		t.Fatalf("expected 'brew upgrade dep', got: %#v", mr.Commands)
+	}
+}
+
+func TestExecute_AdHoc_Targeted_NotInstalled(t *testing.T) {
+	withIsolatedState(t)
+	cfg := models.Config{Packages: []models.Package{{Command: "foo"}}}
+	mr := runner.NewMockRunner()
+
+	primeInstalled(mr, "foo")
+	writeOutdatedCache(t, map[string][2]string{})
+
+	up := New(&cfg, mr)
+
+	err := up.Execute([]string{"ghost"}, false, false)
+	if err == nil {
+		t.Fatalf("expected error for unknown ad-hoc pkg, got nil")
+	}
+	if !strings.Contains(err.Error(), "package not found") {
+		t.Fatalf("expected 'package not found' error, got: %v", err)
+	}
+}
