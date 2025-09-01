@@ -34,7 +34,7 @@ func (u *Upgrader) Execute(args []string, checkOnly bool, all bool) error {
 		Name:       "Upgrading",
 		ActionVerb: "upgrade",
 	})
-	opts.AllowAdHoc = all
+	opts.AllowAdHoc = all || len(args) > 0
 
 	if len(args) > 0 {
 		opts.Packages = args
