@@ -19,6 +19,12 @@ if [ -z "$staged_go_files" ]; then
   exit 0
 fi
 
+echo "Running govulncheck to check for vulnerabilities..."
+if ! govulncheck ./...; then
+  echo "Error: Vulnerabilities found. Commit aborted."
+  exit 1
+fi
+
 echo "Running linters on Go files..."
 if ! golangci-lint run --config .golangci.yml; then
   echo "Error: Linting issues detected."
