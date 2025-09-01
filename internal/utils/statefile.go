@@ -30,7 +30,7 @@ func EnsureUpdateStateFileExists() (string, error) {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
-	updateStateFile := filepath.Join(home, ".local", "state", "keg", "update-check.json")
+	updateStateFile := filepath.Join(home, CacheDir, "update-check.json")
 
 	if ok, _ := FileExists(updateStateFile); !ok {
 		logger.Debug("update state file does not exist: %s", updateStateFile)

@@ -9,6 +9,7 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
+	"github.com/MrSnakeDoc/keg/internal/versions"
 )
 
 var ErrPkgNotFound = errors.New("package not found in configuration")
@@ -328,7 +329,26 @@ func (b *Base) handleSelectedPackage(
 		}
 	}
 
+	b.touchVersionCache(execName)
+
 	logger.Success("%s has been %s successfully!",
 		humanName, pastTense[action.ActionVerb])
 	return nil
+}
+
+func (b *Base) touchVersionCache(execName string) {
+	st, err := brew.FetchState(b.Runner)
+	if err != nil {
+		logger.Debug("versions.Touch skipped: fetch state failed: %v", err)
+		return
+	}
+	v, ok := st.Installed[execName]
+	if !ok || v == "" {
+		return
+	}
+
+	res := versions.NewResolver(b.Runner)
+	if err := res.Touch(execName, v); err != nil {
+		logger.Debug("versions.Touch failed for %s: %v", execName, err)
+	}
 }
