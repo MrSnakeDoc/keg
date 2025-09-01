@@ -288,7 +288,7 @@ func TestExecute_OptionalNotInstalled_IsSkipped(t *testing.T) {
 	}}
 	mr := runner.NewMockRunner()
 
-	primeInstalled(mr /* rien */)
+	primeInstalled(mr) // nothing installed
 	writeOutdatedCache(t, map[string][2]string{})
 
 	up := New(&cfg, mr)
