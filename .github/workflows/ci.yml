@@ -22,6 +22,7 @@ jobs:
           cache: true
       - name: Run unit tests (race + coverage)
         run: |
+          export XDG_CONFIG_HOME=$(mktemp -d)
           go test ./... -race -covermode=atomic -coverprofile=coverage.out
       - name: Upload coverage (artifact)
         if: always()
@@ -42,7 +43,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.60.1
+          version: v2.4.0
           args: --timeout=5m
 
   vulncheck:
