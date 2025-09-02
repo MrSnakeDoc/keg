@@ -24,6 +24,12 @@ test:
 	@echo "🧪 Running tests..."
 	@go test -count=1 ./...
 
+cov:
+	@echo "🧪 Running tests with coverage..."
+	@go test ./... -covermode=atomic -coverprofile=coverage.out
+	@go tool cover -func=coverage.out | tail -n1
+
+
 comp:
 	@echo "🔧 Generating ZSH completion..."
 	@mkdir -p ~/dotfiles/.config/zsh/completion
