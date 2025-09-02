@@ -2,6 +2,7 @@ package uninstall
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/core"
+	"github.com/MrSnakeDoc/keg/internal/logger"
 	"github.com/MrSnakeDoc/keg/internal/manifest"
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
@@ -55,18 +56,12 @@ func (u *Uninstall) Execute(args []string, all bool, remove bool, force bool) er
 	if all {
 		for i := range u.Config.Packages {
 			p := &u.Config.Packages[i]
-			execName := u.GetPackageName(p)
-			if !u.IsPackageInstalled(execName) {
-				toRemove = append(toRemove, p.Command)
-			}
+			toRemove = append(toRemove, p.Command)
 		}
 	} else {
 		for _, name := range args {
 			if pkg, found := u.FindPackage(name); found {
-				execName := u.GetPackageName(pkg)
-				if !u.IsPackageInstalled(execName) {
-					toRemove = append(toRemove, pkg.Command)
-				}
+				toRemove = append(toRemove, pkg.Command)
 			}
 		}
 	}
@@ -83,6 +78,8 @@ func (u *Uninstall) Execute(args []string, all bool, remove bool, force bool) er
 		if err := saveConfig(u.Config); err != nil {
 			return err
 		}
+
+		logger.Success("Configuration updated successfully")
 	}
 
 	return nil
