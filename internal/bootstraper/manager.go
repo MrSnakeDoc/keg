@@ -14,6 +14,8 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
+var ConfirmOrAbortFn = utils.ConfirmOrAbort
+
 // Bootstraper manages the bootstrap process for setting up ZSH.
 //
 // Fields:
@@ -85,7 +87,7 @@ func (d *Bootstraper) Execute() error {
 	- No actions will be taken without your explicit consent.
 	`)
 
-	if err := utils.ConfirmOrAbort("Do you want to continue? [y/N] ", "Bootstrap canceled by user"); err != nil {
+	if err := ConfirmOrAbortFn("Do you want to continue? [y/N] ", "Bootstrap canceled by user"); err != nil {
 		return err
 	}
 
@@ -137,7 +139,7 @@ func (b *Bootstraper) runPackageManagerCommand(cmds packageManagerCommands) erro
 //   - Prompts the user for confirmation to update the package manager.
 //   - Executes the update command if confirmed.
 func (b *Bootstraper) updatePackageManagerIfNeeded() error {
-	if err := utils.ConfirmOrAbort("Update system package manager? [y/N] ", "System package manager update canceled"); err != nil {
+	if err := ConfirmOrAbortFn("Update system package manager? [y/N] ", "System package manager update canceled"); err != nil {
 		return err
 	}
 
@@ -180,7 +182,7 @@ func (d *Bootstraper) checkAndInstallZSH() (bool, error) {
 		return true, nil
 	}
 
-	if err := utils.ConfirmOrAbort("ZSH is not installed. Do you want to install it? [y/N] ", "ZSH installation canceled"); err != nil {
+	if err := ConfirmOrAbortFn("ZSH is not installed. Do you want to install it? [y/N] ", "ZSH installation canceled"); err != nil {
 		return false, err
 	}
 
@@ -228,7 +230,7 @@ func (d *Bootstraper) setDefaultShell() (bool, error) {
 		return false, nil
 	}
 
-	if err := utils.ConfirmOrAbort("ZSH is not set. Do you want to set it as the default shell? [y/N] ", "Shell change canceled"); err != nil {
+	if err := ConfirmOrAbortFn("ZSH is not set. Do you want to set it as the default shell? [y/N] ", "Shell change canceled"); err != nil {
 		return false, err
 	}
 
