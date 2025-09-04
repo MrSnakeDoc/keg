@@ -67,9 +67,6 @@ Examples:
 
 func validateFlags(all, add, opt bool, binary string, args []string) error {
 	// Validate flag combinations
-	if !all && len(args) == 0 {
-		return middleware.FlagComboError(errs.ProvidePkgsOrAll, "Install", "install")
-	}
 	if all && len(args) > 0 {
 		return middleware.FlagComboError(errs.AllWithNamedPackages, "Install", "install", "")
 	}
