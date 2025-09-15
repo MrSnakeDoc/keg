@@ -15,13 +15,14 @@ builds:
       - -X github.com/MrSnakeDoc/keg/internal/checker.Version={{.Version}}
       - -X github.com/MrSnakeDoc/keg/internal/checker.Commit={{.Commit}}
       - -X github.com/MrSnakeDoc/keg/internal/checker.Date={{.Date}}
-      - -X github.com/MrSnakeDoc/keg/internal/checker.GoVersion={{.GoVersion}}
+      - -X github.com/MrSnakeDoc/keg/internal/checker.GoVersion={{.Env.GOVERSION}}
     goos:
       - linux
     goarch:
       - amd64
     env:
       - CGO_ENABLED=0
+      - GOVERSION={{.Env.GOVERSION}}
     binary: keg
 
 archives:
