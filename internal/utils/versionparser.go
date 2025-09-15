@@ -95,13 +95,18 @@ func ValidateVersion(info *VersionInfo) error {
 }
 
 // ValidateSHA256Checksum verifies if the SHA256 hash of the file matches the expected checksum.
-func ValidateSHA256Checksum(filePath, expectedChecksum string) error {
+func ValidateSHA256Checksum(filePath, expectedChecksum string) (err error) {
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s: %w", filePath, err)
 	}
-	defer Close(file)
+
+	defer func() {
+		if cerr := file.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close failed: %w", cerr)
+		}
+	}()
 
 	// Initialize SHA256 hasher
 	hasher := sha256.New()
@@ -119,5 +124,5 @@ func ValidateSHA256Checksum(filePath, expectedChecksum string) error {
 		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedChecksum, computedHash)
 	}
 
-	return nil
+	return err
 }

@@ -21,8 +21,7 @@ Examples:
 				return err
 			}
 
-			update := update.New(nil, nil, nil)
-			return update.Execute(context.Background(), check)
+			return update.New(nil, nil, nil).Execute(context.Background(), check)
 		},
 	}
 

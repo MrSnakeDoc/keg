@@ -33,7 +33,8 @@ It allows you to easily install, update, and manage packages and dependencies fo
 		Run: func(cmd *cobra.Command, _ []string) {
 			versionFlag, _ := cmd.Flags().GetBool("version")
 			if versionFlag {
-				fmt.Printf("Version: %s\n", checker.Version)
+				checker.PrintVersion()
+				return
 			}
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, _ []string) error {

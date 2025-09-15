@@ -36,8 +36,7 @@ Examples:
 				return err
 			}
 
-			upgrade := upgrade.New(cfg, nil)
-			return upgrade.Execute(args, checkOnly, all)
+			return upgrade.New(cfg, nil).Execute(args, checkOnly, all)
 		},
 	}
 

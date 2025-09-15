@@ -195,6 +195,12 @@ func DefaultPackageHandlerOptions(action PackageAction) PackageHandlerOptions {
 //   - If opts.Packages is non-empty, only those packages are handled
 //   - Otherwise, all packages passing FilterFunc are considered
 func (b *Base) HandlePackages(opts PackageHandlerOptions) error {
+	if opts.FilterFunc == nil {
+		opts.FilterFunc = func(*models.Package) bool { return true }
+	}
+	if opts.ValidateFunc == nil {
+		opts.ValidateFunc = func(string) bool { return true }
+	}
 	if len(opts.Packages) > 0 {
 		for _, pkgName := range opts.Packages {
 			if err := b.handleSelectedPackage(opts.Action, pkgName, opts.ValidateFunc, opts.AllowAdHoc); err != nil {
@@ -344,6 +350,11 @@ func (b *Base) touchVersionCache(execName string) {
 	}
 	v, ok := st.Installed[execName]
 	if !ok || v == "" {
+		// not installed anymore → purge from cache
+		res := versions.NewResolver(b.Runner)
+		if err := res.Remove(execName); err != nil {
+			logger.Debug("versions.Remove failed for %s: %v", execName, err)
+		}
 		return
 	}
 

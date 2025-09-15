@@ -26,7 +26,9 @@ func fakeStdin(t *testing.T, input string) (cleanup func()) {
 	if _, err := w.WriteString(input); err != nil {
 		t.Fatalf("write pipe: %v", err)
 	}
-	utils.MustClose(w)
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe: %v", err)
+	}
 
 	orig := os.Stdin
 	os.Stdin = r

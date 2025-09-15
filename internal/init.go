@@ -17,8 +17,7 @@ This command will:
 - Create the configuration directory in ~/.config/keg
 - Save the packages file path in the global configuration`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			init := initiator.New()
-			if err := init.Execute(); err != nil {
+			if err := initiator.New().Execute(); err != nil {
 				return err
 			}
 

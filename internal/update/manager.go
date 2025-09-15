@@ -136,7 +136,9 @@ func (u *Updater) downloadBinary(ctx context.Context) error {
 		return err
 	}
 	u.pathInfo.TempFileName = file.Name()
-	utils.Close(file)
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file %s: %w", file.Name(), err)
+	}
 
 	if err := service.DownloadToFile(ctx, u.Client, u.response.URL, u.pathInfo.TempFileName, 0); err != nil {
 		return err

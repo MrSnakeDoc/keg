@@ -3,11 +3,13 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/MrSnakeDoc/keg/internal/logger"
@@ -29,7 +31,9 @@ func FileExists(path string) (bool, error) {
 	return true, nil
 }
 
-func LookForFileInPath(file string) (string, error) {
+var LookForFileInPath = DefaultLookForFileInPath
+
+func DefaultLookForFileInPath(file string) (string, error) {
 	absPath, err := exec.LookPath(file)
 	if err != nil {
 		return "", fmt.Errorf("failed to get absolute path for %s: %w", file, err)
@@ -137,4 +141,124 @@ func MakeFilePath(dir string, filename string) string {
 	homedir := GetHomeDir()
 
 	return filepath.Join(homedir, dir, filename)
+}
+
+type bytesRSC struct {
+	data []byte
+	off  int64
+}
+
+func NewBytesReadSeekCloser(b []byte) io.ReadSeekCloser {
+	return &bytesRSC{data: b}
+}
+
+func (b *bytesRSC) Read(p []byte) (int, error) {
+	if b.off >= int64(len(b.data)) {
+		return 0, io.EOF
+	}
+	n := copy(p, b.data[b.off:])
+	b.off += int64(n)
+	return n, nil
+}
+
+func (b *bytesRSC) Seek(offset int64, whence int) (int64, error) {
+	var base int64
+	switch whence {
+	case io.SeekStart:
+		base = 0
+	case io.SeekCurrent:
+		base = b.off
+	case io.SeekEnd:
+		base = int64(len(b.data))
+	default:
+		return 0, syscall.EINVAL
+	}
+	npos := base + offset
+	if npos < 0 {
+		return 0, syscall.EINVAL
+	}
+	b.off = npos
+	return b.off, nil
+}
+
+func (b *bytesRSC) Close() error { return nil }
+
+func WriteFileAtomic(tmpPath, finalPath string, r io.Reader) error {
+	// Create tmp
+	tmp, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(tmp, r)
+	syncErr := tmp.Sync()
+	closeErr := tmp.Close()
+
+	if copyErr != nil {
+		_ = os.Remove(tmpPath)
+		return copyErr
+	}
+	if syncErr != nil {
+		_ = os.Remove(tmpPath)
+		return syncErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(tmpPath)
+		return closeErr
+	}
+
+	// Rename atomically
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	// fsync directory for durability
+	return fsyncDir(filepath.Dir(finalPath))
+}
+
+func WriteJSONAtomic(path string, v any) error {
+	tmp := path + ".tmp"
+	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "")
+	if err := enc.Encode(v); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return fsyncDir(filepath.Dir(path))
+}
+
+func fsyncDir(dir string) error {
+	df, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if cerr := df.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close failed: %w", cerr)
+		}
+	}()
+
+	// On non-Unix, Sync may be no-op; fine.
+	if f, ok := any(df).(interface{ Sync() error }); ok {
+		_ = f.Sync()
+	}
+	return err
 }

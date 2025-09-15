@@ -49,10 +49,7 @@ Examples:
 				return err
 			}
 
-			// Create a new installer instance
-			inst := install.New(cfg, nil)
-
-			return inst.Execute(args, allFlag, addFlag, optFlag, binaryFlag)
+			return install.New(cfg, nil).Execute(args, allFlag, addFlag, optFlag, binaryFlag)
 		},
 	}
 

@@ -14,6 +14,7 @@ var defaultCommands = []middleware.CommandFactory{
 	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.IsHomebrewInstalled, middleware.LoadPkgList)(NewUpgradeCmd),
 	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.IsHomebrewInstalled, middleware.LoadPkgList)(NewDeleteCmd),
 	NewUpdateCmd,
+	middleware.UseMiddlewareChain(middleware.RequireConfig, middleware.LoadPkgList)(NewSearchCmd),
 }
 
 func RegisterSubCommands(cmd *cobra.Command) {

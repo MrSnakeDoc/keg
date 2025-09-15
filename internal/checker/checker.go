@@ -17,12 +17,6 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
-var (
-	Version = "dev"
-	Commit  = "unknown"
-	Date    = "unknown"
-)
-
 type CheckerController struct {
 	Config     *config.Config
 	HTTPClient service.HTTPClient
@@ -190,13 +184,18 @@ func (c *CheckerController) fetchChecksum(ctx context.Context, release *GitHubRe
 	return utils.ParseChecksumsForBinary(string(body), release.TagName)
 }
 
-func (c *CheckerController) checkUpdate(ctx context.Context) (*utils.VersionInfo, error) {
+func (c *CheckerController) checkUpdate(ctx context.Context) (v *utils.VersionInfo, err error) {
 	resp, err := MakeHTTPRequest(ctx, c.HTTPClient, c.Config.VersionURL)
 	if err != nil {
 		logger.Debug("Failed to make HTTP request: %v", err)
 		return nil, nil
 	}
-	defer utils.Try(resp.Body.Close)
+
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close failed: %w", cerr)
+		}
+	}()
 
 	var release GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
@@ -236,7 +235,7 @@ func (c *CheckerController) checkUpdate(ctx context.Context) (*utils.VersionInfo
 	}
 
 	responses := []*utils.VersionInfo{nil, c.response}
-	return responses[utils.BoolToInt(isNewer)], nil
+	return responses[utils.BoolToInt(isNewer)], err
 }
 
 func (c *CheckerController) isUpdateAvailable(info *utils.VersionInfo) (bool, error) {
