@@ -146,6 +146,15 @@ func Warn(msg string, args ...interface{}) {
 	mu.RUnlock()
 }
 
+func Fatal(msg string, args ...interface{}) {
+	if !ensureReady() {
+		os.Exit(1)
+	}
+	mu.RLock()
+	zlog.Fatalf(p.Error("💥 "+msg, args...))
+	mu.RUnlock()
+}
+
 func WarnInline(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
@@ -164,7 +173,7 @@ func Debug(msg string, args ...interface{}) {
 		return
 	}
 	mu.RLock()
-	zlog.Debugf(p.Debug("🛠️ "+msg, args...))
+	zlog.Debugf(p.Debug("🛠️  "+msg, args...))
 	mu.RUnlock()
 }
 
@@ -176,6 +185,10 @@ func CreateTable(headers []string) *tablewriter.Table {
 	t := tablewriter.NewTable(out)
 	t.Header(headers)
 	return t
+}
+
+func RenderRow(table *tablewriter.Table, name, ver, status, pkgType string) error {
+	return table.Append([]string{name, ver, status, pkgType})
 }
 
 // ---- internals ----

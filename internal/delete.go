@@ -52,10 +52,7 @@ Examples:
 				return middleware.FlagComboError(errs.AllWithRemoveNeedsForce)
 			}
 
-			// Create uninstaller
-			uninstall := uninstall.New(cfg, nil)
-
-			return uninstall.Execute(args, allFlag, removeFlag, forceFlag)
+			return uninstall.New(cfg, nil).Execute(args, allFlag, removeFlag, forceFlag)
 		},
 	}
 

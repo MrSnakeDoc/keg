@@ -2,18 +2,18 @@ package uninstall
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/core"
+	"github.com/MrSnakeDoc/keg/internal/globalconfig"
 	"github.com/MrSnakeDoc/keg/internal/logger"
 	"github.com/MrSnakeDoc/keg/internal/manifest"
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
-	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
 type Uninstall struct {
 	*core.Base
 }
 
-var saveConfig = utils.SaveConfig
+var saveConfig = globalconfig.SaveConfig
 
 func New(config *models.Config, r runner.CommandRunner) *Uninstall {
 	if r == nil {

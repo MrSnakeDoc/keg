@@ -194,6 +194,12 @@ func SaveCache(m map[string]Info) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
+func (rv *Resolver) Remove(name string) error {
+	cache, _ := LoadCache()
+	delete(cache, name)
+	return SaveCache(cache)
+}
+
 // -------- Chunk resolution (brew info --json=v2) --------
 
 func (rv *Resolver) resolveChunk(ctx context.Context, names []string) (map[string]Info, error) {

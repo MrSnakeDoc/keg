@@ -2,7 +2,6 @@ package internal
 
 import (
 	"github.com/MrSnakeDoc/keg/internal/bootstraper"
-
 	"github.com/spf13/cobra"
 )
 
@@ -16,11 +15,8 @@ func NewBootstrapCmd() *cobra.Command {
     - If not, prompt to install zsh
     - Set zsh as the default shell`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			// Create bootstraper
-			boot := bootstraper.New(nil)
-
 			// Run deployment
-			return boot.Execute()
+			return bootstraper.New(nil).Execute()
 		},
 	}
 }

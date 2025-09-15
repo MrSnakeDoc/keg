@@ -37,3 +37,18 @@ comp:
 	@chmod +x ~/dotfiles/.config/zsh/completion/_$(BINARY_NAME)
 	@chmod 644 ~/dotfiles/.config/zsh/completion/_$(BINARY_NAME)
 	@echo "✅ ZSH completion generated in ~/dotfiles/.config/zsh/completion/_$(BINARY_NAME)"
+
+
+
+VERSION = 0.1.6
+COMMIT  = $(shell git rev-parse --short HEAD)
+DATE     = $(shell date -u -d "2 weeks ago" +%Y-%m-%dT%H:%M:%SZ)
+GOVERSION = $(shell go version | awk '{print $$3}')
+
+LDFLAGS = -X github.com/MrSnakeDoc/keg/internal/checker.Version=$(VERSION) \
+           -X github.com/MrSnakeDoc/keg/internal/checker.Commit=$(COMMIT) \
+           -X github.com/MrSnakeDoc/keg/internal/checker.Date=$(DATE) \
+		   -X github.com/MrSnakeDoc/keg/internal/checker.GoVersion=$(GOVERSION)
+
+buildt:
+	go build -ldflags "$(LDFLAGS)" -o keg cmd/keg/main.go

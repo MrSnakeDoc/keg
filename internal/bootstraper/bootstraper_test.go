@@ -1,9 +1,11 @@
 package bootstraper
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MrSnakeDoc/keg/internal/runner"
@@ -147,5 +149,108 @@ func TestUpdatePM_Refused(t *testing.T) {
 	}
 	if len(mr.Commands) != 0 {
 		t.Fatalf("expected no sudo/pm calls")
+	}
+}
+
+func TestExecute_Cancelled(t *testing.T) {
+	restore := ConfirmOrAbortFn
+	ConfirmOrAbortFn = func(_, msg string) error { return errors.New(msg) }
+	defer func() { ConfirmOrAbortFn = restore }()
+
+	mr := runner.NewMockRunner()
+	bs := New(mr)
+
+	if err := bs.Execute(); err == nil || err.Error() != "Bootstrap canceled by user" {
+		t.Fatalf("expected cancel error, got %v", err)
+	}
+}
+
+func TestInstallZSH(t *testing.T) {
+	tmp := t.TempDir()
+	fakeBin(t, tmp, "apt")
+	t.Setenv("PATH", tmp)
+
+	mr := runner.NewMockRunner()
+	bs := New(mr)
+
+	if err := bs.installZSH(); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !mr.VerifyCommand("sudo", "apt", "install", "-y", "zsh") {
+		t.Fatalf("expected sudo apt install -y zsh, got %+v", mr.Commands)
+	}
+}
+
+func TestChangeDefaultShell(t *testing.T) {
+	mr := runner.NewMockRunner()
+	bs := New(mr)
+
+	if err := bs.changeDefaultShell(); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+
+	if !sawChshToZsh(mr) {
+		t.Fatalf("expected sudo chsh -s /bin/zsh <user>, got %+v", mr.Commands)
+	}
+}
+
+func TestShowSetupMessages(t *testing.T) {
+	bs := New(runner.NewMockRunner())
+
+	bs.showSetupMessages(true, false)
+
+	bs.showSetupMessages(false, true)
+}
+
+func TestUpdatePM_Success(t *testing.T) {
+	restore := ConfirmOrAbortFn
+	ConfirmOrAbortFn = func(_, _ string) error { return nil } // user accepts
+	defer func() { ConfirmOrAbortFn = restore }()
+
+	tmp := t.TempDir()
+	fakeBin(t, tmp, "apt")
+	t.Setenv("PATH", tmp)
+
+	mr := runner.NewMockRunner()
+	bs := New(mr)
+
+	if err := bs.updatePackageManagerIfNeeded(); err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if len(mr.Commands) == 0 {
+		t.Fatalf("expected package manager update command, got none")
+	}
+}
+
+func TestSetupZSH_AllCases(t *testing.T) {
+	restore := ConfirmOrAbortFn
+	defer func() { ConfirmOrAbortFn = restore }()
+
+	// 1. Fake package manager so utils.PackageManager() succeeds
+	tmp := t.TempDir()
+	fakeBin(t, tmp, "apt")
+	t.Setenv("PATH", tmp)
+
+	// 2. Fake shell so setDefaultShell() triggers
+	t.Setenv("SHELL", "/bin/bash")
+
+	// 3. User always says yes
+	ConfirmOrAbortFn = func(_, _ string) error { return nil }
+
+	// 4. Mock runner simulates chsh failing
+	mr := runner.NewMockRunner()
+	mr.ResponseFunc = func(name string, args ...string) ([]byte, error) {
+		if name == "sudo" && len(args) > 0 && args[0] == "chsh" {
+			return nil, fmt.Errorf("fail chsh")
+		}
+		return nil, nil
+	}
+
+	bs := New(mr)
+
+	// 5. Execute setupZSH and expect error from chsh
+	if err := bs.setupZSH(); err == nil || !strings.Contains(err.Error(), "fail chsh") {
+		t.Fatalf("expected fail chsh error, got %v", err)
 	}
 }

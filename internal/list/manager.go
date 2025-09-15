@@ -10,14 +10,13 @@ import (
 	"github.com/MrSnakeDoc/keg/internal/runner"
 	"github.com/MrSnakeDoc/keg/internal/utils"
 	"github.com/MrSnakeDoc/keg/internal/versions"
-	"github.com/olekukonko/tablewriter"
 )
 
 // row is a view model for rendering.
 type row struct {
 	DisplayName string // what we show in the table (binary or command as today)
 	Version     string
-	Status      string
+	StatusCode  string
 	Type        string // "core" | "dep" | "optional"
 	SortKey     string // ALWAYS the command name for sorting
 }
@@ -40,18 +39,16 @@ func New(config *models.Config, r runner.CommandRunner) *Lister {
 // Execute renders the list table.
 // - onlyDeps=false => manifest only
 // - onlyDeps=true  => only deps/ad-hoc (installed but not in manifest)
-
 func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
 	installed, err := utils.MapInstalledPackagesWith(l.Runner, func(pkg string) (string, bool) {
 		return pkg, true
 	})
 	if err != nil {
-		return fmt.Errorf("an error occurred while fetching installed packages: %w", err)
+		return fmt.Errorf("fetch installed packages: %w", err)
 	}
 
-	// configured names + sets + name->command map
+	// configured names + sets + map
 	configured, cfgSet, optionalSet, nameToCommand := l.buildConfigured()
-
 	deps := l.computeDeps(installed, cfgSet)
 
 	// choose list
@@ -68,14 +65,11 @@ func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
 		versionInfo = map[string]versions.Info{}
 	}
 
-	p := printer.NewColorPrinter()
-	table := logger.CreateTable([]string{"Package", "Version", "Status", "Type"})
-
-	// Build rows (no manual loops in business logic, just one for render)
+	// Build rows
 	rows := utils.Map(names, func(name string) row {
-		status := p.Success("✓ installed")
+		status := "installed"
 		if !installed[name] {
-			status = p.Error("✗ missing")
+			status = "missing"
 		}
 
 		ver := "—"
@@ -90,8 +84,6 @@ func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
 			} else if _, ok := cfgSet[name]; ok {
 				pkgType = "core"
 			}
-		} else {
-			pkgType = "dep"
 		}
 
 		// SortKey = command name when we know it; fallback to name
@@ -103,8 +95,8 @@ func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
 		return row{
 			DisplayName: name,
 			Version:     ver,
-			Status:      status,
-			Type:        pkgType, // keep raw for sorting
+			StatusCode:  status,
+			Type:        pkgType,
 			SortKey:     sortKey,
 		}
 	})
@@ -112,16 +104,30 @@ func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
 	// Sort rows: core < dep < optional, then alpha by command
 	utils.SortByTypeAndKey(rows, func(r row) string { return r.Type }, func(r row) string { return r.SortKey })
 
+	return outputItems(rows)
+}
+
+func outputItems(rows []row) error {
+	p := printer.NewColorPrinter()
+	table := logger.CreateTable([]string{"Package", "Version", "Status", "Type"})
+
 	for _, r := range rows {
-		if err := renderRow(table, r.DisplayName, r.Version, r.Status, prettyType(p, r.Type)); err != nil {
-			return fmt.Errorf("an error occurred while appending to the table: %w", err)
+		status := "-"
+		switch r.StatusCode {
+		case "installed":
+			status = p.Success("installed")
+		case "missing":
+			status = p.Info("missing")
+		}
+
+		if err := logger.RenderRow(table, r.DisplayName, r.Version, status, prettyType(p, r.Type)); err != nil {
+			return fmt.Errorf("append to table: %w", err)
 		}
 	}
 
 	if err := table.Render(); err != nil {
-		return fmt.Errorf("an error occurred while rendering the table: %w", err)
+		return fmt.Errorf("render table: %w", err)
 	}
-
 	return nil
 }
 
@@ -156,10 +162,6 @@ func (l *Lister) computeDeps(installed map[string]bool, cfgSet map[string]struct
 		_, ok := cfgSet[n]
 		return !ok
 	})
-}
-
-func renderRow(table *tablewriter.Table, name, ver, status, pkgType string) error {
-	return table.Append([]string{name, ver, status, pkgType})
 }
 
 // prettyType colors only the UI label, not the sorting value.

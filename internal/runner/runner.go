@@ -1,4 +1,3 @@
-// runner/runner.go
 package runner
 
 import (

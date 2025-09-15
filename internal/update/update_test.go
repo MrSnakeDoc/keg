@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MrSnakeDoc/keg/internal/checker"
 	"github.com/MrSnakeDoc/keg/internal/config"
+	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
 type fakeHTTPClient struct {
@@ -23,6 +25,15 @@ type fakeHTTPClient struct {
 
 func (f *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return f.DoFunc(req)
+}
+
+type mockChecker struct {
+	resp *utils.VersionInfo
+	err  error
+}
+
+func (m *mockChecker) Execute(ctx context.Context, checkOnly bool) (*utils.VersionInfo, error) {
+	return m.resp, m.err
 }
 
 // Helper to create a fake binary and its sha256
@@ -113,5 +124,106 @@ func TestUpdater_Execute_UpdateAvailable(t *testing.T) {
 	}
 	if st.UpdateAvailable {
 		t.Errorf("update_available should be false, got true")
+	}
+}
+
+func TestUpdater_Execute_CheckOnly_UpdateAvailable(t *testing.T) {
+	origVersion := checker.Version
+	checker.Version = "1.0.0"
+	defer func() { checker.Version = origVersion }()
+
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	mockChecker := &mockChecker{resp: &utils.VersionInfo{Version: "2.0.0"}}
+	up := New(nil, nil, mockChecker)
+
+	err := up.Execute(context.Background(), true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdater_Execute_CheckOnly_NoUpdate(t *testing.T) {
+	origVersion := checker.Version
+	checker.Version = "1.0.0"
+	defer func() { checker.Version = origVersion }()
+
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	mockChecker := &mockChecker{resp: nil}
+	up := New(nil, nil, mockChecker)
+
+	err := up.Execute(context.Background(), true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdater_Execute_NoUpdateAvailable(t *testing.T) {
+	origVersion := checker.Version
+	checker.Version = "1.0.0"
+	defer func() { checker.Version = origVersion }()
+
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	mockChecker := &mockChecker{resp: nil}
+	up := New(nil, nil, mockChecker)
+
+	err := up.Execute(context.Background(), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUpdater_DownloadBinary_BadChecksum(t *testing.T) {
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	up := New(nil, nil, nil)
+	up.response = &utils.VersionInfo{
+		URL:    "http://fake",
+		SHA256: "deadbeef",
+	}
+	up.pathInfo = &pathInfo{BinaryPath: filepath.Join(tmpHome, "keg")}
+
+	up.Client = &fakeHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 200,
+				Body:       io.NopCloser(bytes.NewReader([]byte("hello"))),
+			}, nil
+		},
+	}
+
+	err := up.downloadBinary(context.Background())
+	if err == nil {
+		t.Fatalf("expected checksum error, got nil")
+	}
+	if !strings.Contains(err.Error(), "checksum") {
+		t.Errorf("expected checksum error, got %v", err)
+	}
+}
+
+func TestUpdater_PrepareSwap_BrewPathError(t *testing.T) {
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	up := New(nil, nil, nil)
+	up.pathInfo = &pathInfo{BinaryPath: filepath.Join(tmpHome, "doesnotexist")}
+
+	utils.LookForFileInPath = func(_ string) (string, error) {
+		return "/usr/local/bin/keg", nil
+	}
+	defer func() { utils.LookForFileInPath = utils.DefaultLookForFileInPath }()
+
+	err := up.PrepareSwap()
+	if err == nil {
+		t.Fatalf("expected error for brew path, got nil")
+	}
+	if !strings.Contains(err.Error(), "/usr/local/bin") {
+		t.Errorf("expected brew path error, got %v", err)
 	}
 }

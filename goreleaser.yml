@@ -15,6 +15,7 @@ builds:
       - -X github.com/MrSnakeDoc/keg/internal/checker.Version={{.Version}}
       - -X github.com/MrSnakeDoc/keg/internal/checker.Commit={{.Commit}}
       - -X github.com/MrSnakeDoc/keg/internal/checker.Date={{.Date}}
+      - -X github.com/MrSnakeDoc/keg/internal/checker.GoVersion={{.GoVersion}}
     goos:
       - linux
     goarch:

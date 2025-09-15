@@ -23,11 +23,9 @@ This includes:
 			if err != nil {
 				return err
 			}
-			// Create deployer
-			dep := deploy.New(cfg, nil)
 
 			// Run deployment
-			return dep.Execute()
+			return deploy.New(cfg, nil).Execute()
 		},
 	}
 }
