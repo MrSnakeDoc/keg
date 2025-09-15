@@ -26,11 +26,9 @@ Table of Contents
     - [From Source](#from-source)
   - [⚙️ Configuration](#️-configuration)
   - [🛠️ Usage](#️-usage)
-    - [Bootstrap your shell](#bootstrap-your-shell)
-    - [Deploy your environment](#deploy-your-environment)
-    - [Package management](#package-management)
-    - [Update Keg itself](#update-keg-itself)
-    - [Global options](#global-options)
+    - [Search packages](#search-packages)
+  - [🔄 Update Keg itself](#-update-keg-itself)
+  - [Global options](#global-options)
   - [🧪 Testing \& Development](#-testing--development)
   - [📝 Roadmap](#-roadmap)
   - [📄 License](#-license)
@@ -125,8 +123,24 @@ packages:
 | `keg delete --all --remove --force`  | Purge system + manifest (⚠ destructive)                    |
 | `keg --version`                      | Show CLI version                                           |
 | `keg --no-update-check`              | Skip update check (for scripting)                          |
+| `keg search <query> [opts]`                 | Search packages in the Homebrew index (substring, exact, or regex) |
 
 
+### Search packages
+
+`keg search` lets you query the Homebrew index directly.
+
+Examples:
+
+```bash
+keg search eza              # substring match
+keg search eza --exact      # exact match
+keg search '^rg' --regex    # regex match
+keg search rip --no-desc    # hide description column
+keg search rg --limit 5     # limit results
+keg search htop --json      # output JSON
+keg search bat --fzf        # output TSV for FZF
+```
 
 ## 🔄 Update Keg itself
 
@@ -138,7 +152,7 @@ Keg provides a safe self-update mechanism:
 
 ---
 
-### Global options
+## Global options
 
 ```bash
 keg --version               # Show CLI version
