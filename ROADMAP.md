@@ -36,7 +36,7 @@
 ## v0.2 — Quality-of-Life & Performance
 - [ ] **Remote registry support**  
       Import packages from a hosted YAML (GitHub raw, Gist, S3…)
-- [ ] **Package search**  
+- [x] **Package search**  
       `keg search fzf` → query Homebrew formulae and display metadata
 
 ## v1.0 — Plugin ecosystem
