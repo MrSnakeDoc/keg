@@ -10,6 +10,11 @@ Reproducible, idempotent, and fast.
 
 ---
 
+## 💚 Shout-out to [Homebrew](https://brew.sh)
+
+Keg is built on top of the Homebrew ecosystem and uses it as its package management backend.  
+If you enjoy using Keg, consider contributing to or supporting the Homebrew project — without their amazing work, Keg simply wouldn’t exist.
+
 ## Why Keg Exists?
 
 - Reinstalling Linux machines over and over wastes time. Instead of another brittle Bash script, I wanted an idempotent, reproducible, portable CLI: one `keg deploy` and my dev environment is back on Ubuntu, Fedora, or Arch.
