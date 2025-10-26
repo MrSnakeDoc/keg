@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -139,9 +140,7 @@ func (b *Base) IsPackageInstalled(name string) bool {
 // Returns:
 //   - error: non-nil if the package map could not be loaded
 func (b *Base) loadInstalledPackages() error {
-	m, err := utils.MapInstalledPackagesWith(b.Runner, func(pkg string) (string, bool) {
-		return pkg, true
-	})
+	m, err := utils.InstalledSet(b.Runner)
 	if err != nil {
 		return err
 	}
@@ -342,15 +341,63 @@ func (b *Base) handleSelectedPackage(
 	return nil
 }
 
+// func (b *Base) touchVersionCache(execName string) {
+// 	st, err := brew.FetchState(b.Runner)
+// 	if err != nil {
+// 		logger.Debug("versions.Touch skipped: fetch state failed: %v", err)
+// 		return
+// 	}
+
+// 	// with set: only presence matters
+// 	if _, ok := st.Installed[execName]; !ok {
+// 		// not installed anymore → purge from cache
+// 		res := versions.NewResolver(b.Runner)
+// 		if err := res.Remove(execName); err != nil {
+// 			logger.Debug("versions.Remove failed for %s: %v", execName, err)
+// 		}
+// 		return
+// 	}
+
+// 	// installed: resolve the *installed version* then touch cache
+// 	res := versions.NewResolver(b.Runner)
+// 	vi, err := res.ResolveBulk(context.Background(), []string{execName})
+// 	if err != nil {
+// 		logger.Debug("versions.ResolveBulk failed for %s: %v", execName, err)
+// 		return
+// 	}
+// 	info, ok := vi[execName]
+// 	if !ok || info.Installed == "" {
+// 		// cannot determine version → safest is to remove stale entry
+// 		// (or you can skip instead of removing if you prefer)
+// 		if err := res.Remove(execName); err != nil {
+// 			logger.Debug("versions.Remove (no version) failed for %s: %v", execName, err)
+// 		}
+// 		return
+// 	}
+
+// 	installed, err := res.ResolveBulk(context.Background(), []string{execName})
+// 	if err != nil {
+// 		logger.Debug("versions.ResolveBulk (installed) failed for %s: %v", execName, err)
+// 		return
+// 	}
+
+// 	// Si la version système != cache → on update
+// 	if installed != info.Installed {
+// 		if err := res.Touch(execName, installed); err != nil {
+// 			logger.Debug("versions.Touch failed for %s: %v", execName, err)
+// 		}
+// 	}
+// }
+
+// core/base.go (extrait)
 func (b *Base) touchVersionCache(execName string) {
 	st, err := brew.FetchState(b.Runner)
 	if err != nil {
 		logger.Debug("versions.Touch skipped: fetch state failed: %v", err)
 		return
 	}
-	v, ok := st.Installed[execName]
-	if !ok || v == "" {
-		// not installed anymore → purge from cache
+	if _, ok := st.Installed[execName]; !ok {
+		// Not installed anymore → purge from versions cache
 		res := versions.NewResolver(b.Runner)
 		if err := res.Remove(execName); err != nil {
 			logger.Debug("versions.Remove failed for %s: %v", execName, err)
@@ -359,7 +406,32 @@ func (b *Base) touchVersionCache(execName string) {
 	}
 
 	res := versions.NewResolver(b.Runner)
-	if err := res.Touch(execName, v); err != nil {
-		logger.Debug("versions.Touch failed for %s: %v", execName, err)
+
+	// 1) Snapshot before (most likely stale)
+	before, err := res.ResolveBulk(context.Background(), []string{execName})
+	if err != nil {
+		logger.Debug("versions.ResolveBulk (before) failed for %s: %v", execName, err)
+		return
+	}
+	prev := before[execName] // zero value if missing
+
+	// 2) Evict cache entry and re-resolve to force a fresh read from brew
+	_ = res.Remove(execName)
+	after, err := res.ResolveBulk(context.Background(), []string{execName})
+	if err != nil {
+		logger.Debug("versions.ResolveBulk (fresh) failed for %s: %v", execName, err)
+		return
+	}
+	fresh, ok := after[execName]
+	if !ok || fresh.Installed == "" {
+		logger.Debug("versions.ResolveBulk (fresh) empty for %s", execName)
+		return
+	}
+
+	// 3) Only write if value actually changed (avoid useless writes)
+	if fresh.Installed != prev.Installed {
+		if err := res.Touch(execName, fresh.Installed); err != nil {
+			logger.Debug("versions.Touch failed for %s: %v", execName, err)
+		}
 	}
 }

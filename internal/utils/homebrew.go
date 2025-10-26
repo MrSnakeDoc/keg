@@ -46,14 +46,50 @@ func SetHomebrewPath() error {
 	return nil
 }
 
-func MapInstalledPackagesWith[T any](r runner.CommandRunner, transform func(string) (string, T)) (map[string]T, error) {
-	output, err := r.Run(context.Background(), 60*time.Second, runner.Capture, "brew", "list")
+// func MapInstalledPackagesWith[T any](r runner.CommandRunner, transform func(string) (string, T)) (map[string]T, error) {
+// 	output, err := r.Run(context.Background(), 60*time.Second, runner.Capture, "brew", "list", "--formula")
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to fetch installed packages: %w", err)
+// 	}
+
+// 	lines := strings.Split(string(output), "\n")
+
+// 	return TransformToMap(lines, transform), nil
+// }
+
+// InstalledSet returns a fast membership map of installed brew formulae.
+// Key: package name, Value: true if installed.
+func InstalledSet(r runner.CommandRunner) (map[string]bool, error) {
+	if r == nil {
+		r = &runner.ExecRunner{}
+	}
+
+	// Force one package per line to simplify parsing
+	out, err := r.Run(context.Background(), 60*time.Second, runner.Capture, "brew", "list", "--formula", "-1")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch installed packages: %w", err)
 	}
 
-	lines := strings.Split(string(output), "\n")
-	return TransformToMap(lines, transform), nil
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	m := make(map[string]bool, len(lines))
+	for _, line := range lines {
+		name := strings.TrimSpace(line)
+		if name == "" {
+			continue
+		}
+		m[name] = true
+	}
+	return m, nil
+}
+
+// ListInstalled returns the installed brew formulae as a slice (if you ever need it).
+func ListInstalled(r runner.CommandRunner) ([]string, error) {
+	set, err := InstalledSet(r)
+	if err != nil {
+		return nil, err
+	}
+	// Keys is presumably a generic helper you already have; if not, do a simple range.
+	return Keys(set), nil
 }
 
 // RunBrewCommand executes a brew command and handles warnings

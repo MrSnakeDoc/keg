@@ -11,7 +11,7 @@ func MustSet(key, val string) (old string) {
 	if err := os.Setenv(key, val); err != nil {
 		logger.LogError("envutil: " + err.Error())
 	}
-	return
+	return old
 }
 
 func DeferRestore(key, val string) {

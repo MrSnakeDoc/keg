@@ -29,6 +29,8 @@ type Resolver struct {
 	ChunkTimeout  time.Duration
 }
 
+const cacheFileName = "pkg_versions.json"
+
 func NewResolver(r runner.CommandRunner) *Resolver {
 	if r == nil {
 		r = &runner.ExecRunner{}
@@ -141,8 +143,6 @@ func (rv *Resolver) Touch(name, newInstalled string) error {
 	}
 	return SaveCache(cache)
 }
-
-const cacheFileName = "pkg_versions.json"
 
 // VersionsCachePath returns ~/.local/state/keg/pkg_versions.json (XDG-state-like).
 func VersionsCachePath() (string, error) {

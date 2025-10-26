@@ -1,7 +1,6 @@
-.PHONY: build clean
+.PHONY: build clean lint lintf test cov comp buildt
 
 BINARY_NAME=keg
-
 
 build:
 	@go build -ldflags "-s -w" -o ~/.local/bin/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
@@ -40,7 +39,7 @@ comp:
 
 
 
-VERSION = 0.1.6
+VERSION = 0.2.1
 COMMIT  = $(shell git rev-parse --short HEAD)
 DATE     = $(shell date -u -d "2 weeks ago" +%Y-%m-%dT%H:%M:%SZ)
 GOVERSION = $(shell go version | awk '{print $$3}')
@@ -51,4 +50,4 @@ LDFLAGS = -X github.com/MrSnakeDoc/keg/internal/checker.Version=$(VERSION) \
 		   -X github.com/MrSnakeDoc/keg/internal/checker.GoVersion=$(GOVERSION)
 
 buildt:
-	go build -ldflags "$(LDFLAGS)" -o keg cmd/keg/main.go
+	go build -ldflags "$(LDFLAGS)" -o bin/keg cmd/keg/main.go

@@ -40,9 +40,7 @@ func New(config *models.Config, r runner.CommandRunner) *Lister {
 // - onlyDeps=false => manifest only
 // - onlyDeps=true  => only deps/ad-hoc (installed but not in manifest)
 func (l *Lister) Execute(ctx context.Context, onlyDeps bool) error {
-	installed, err := utils.MapInstalledPackagesWith(l.Runner, func(pkg string) (string, bool) {
-		return pkg, true
-	})
+	installed, err := utils.InstalledSet(l.Runner)
 	if err != nil {
 		return fmt.Errorf("fetch installed packages: %w", err)
 	}
@@ -154,7 +152,7 @@ func (l *Lister) buildConfigured() (names []string, cfgSet map[string]struct{}, 
 			optionalSet[name] = true
 		}
 	}
-	return
+	return names, cfgSet, optionalSet, nameToCommand
 }
 
 func (l *Lister) computeDeps(installed map[string]bool, cfgSet map[string]struct{}) []string {
