@@ -46,17 +46,6 @@ func SetHomebrewPath() error {
 	return nil
 }
 
-// func MapInstalledPackagesWith[T any](r runner.CommandRunner, transform func(string) (string, T)) (map[string]T, error) {
-// 	output, err := r.Run(context.Background(), 60*time.Second, runner.Capture, "brew", "list", "--formula")
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to fetch installed packages: %w", err)
-// 	}
-
-// 	lines := strings.Split(string(output), "\n")
-
-// 	return TransformToMap(lines, transform), nil
-// }
-
 // InstalledSet returns a fast membership map of installed brew formulae.
 // Key: package name, Value: true if installed.
 func InstalledSet(r runner.CommandRunner) (map[string]bool, error) {

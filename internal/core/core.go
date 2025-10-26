@@ -341,55 +341,14 @@ func (b *Base) handleSelectedPackage(
 	return nil
 }
 
-// func (b *Base) touchVersionCache(execName string) {
-// 	st, err := brew.FetchState(b.Runner)
-// 	if err != nil {
-// 		logger.Debug("versions.Touch skipped: fetch state failed: %v", err)
-// 		return
-// 	}
-
-// 	// with set: only presence matters
-// 	if _, ok := st.Installed[execName]; !ok {
-// 		// not installed anymore → purge from cache
-// 		res := versions.NewResolver(b.Runner)
-// 		if err := res.Remove(execName); err != nil {
-// 			logger.Debug("versions.Remove failed for %s: %v", execName, err)
-// 		}
-// 		return
-// 	}
-
-// 	// installed: resolve the *installed version* then touch cache
-// 	res := versions.NewResolver(b.Runner)
-// 	vi, err := res.ResolveBulk(context.Background(), []string{execName})
-// 	if err != nil {
-// 		logger.Debug("versions.ResolveBulk failed for %s: %v", execName, err)
-// 		return
-// 	}
-// 	info, ok := vi[execName]
-// 	if !ok || info.Installed == "" {
-// 		// cannot determine version → safest is to remove stale entry
-// 		// (or you can skip instead of removing if you prefer)
-// 		if err := res.Remove(execName); err != nil {
-// 			logger.Debug("versions.Remove (no version) failed for %s: %v", execName, err)
-// 		}
-// 		return
-// 	}
-
-// 	installed, err := res.ResolveBulk(context.Background(), []string{execName})
-// 	if err != nil {
-// 		logger.Debug("versions.ResolveBulk (installed) failed for %s: %v", execName, err)
-// 		return
-// 	}
-
-// 	// Si la version système != cache → on update
-// 	if installed != info.Installed {
-// 		if err := res.Touch(execName, installed); err != nil {
-// 			logger.Debug("versions.Touch failed for %s: %v", execName, err)
-// 		}
-// 	}
-// }
-
-// core/base.go (extrait)
+// touchVersionCache updates the versions cache for the given executable.
+//
+// Parameters:
+//   - execName: the name of the executable/package to update in the cache
+//
+// Behavior:
+//   - If the package is no longer installed, it removes it from the cache
+//   - Otherwise, it refreshes the cached version if it has changed
 func (b *Base) touchVersionCache(execName string) {
 	st, err := brew.FetchState(b.Runner)
 	if err != nil {
