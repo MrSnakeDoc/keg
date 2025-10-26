@@ -44,8 +44,8 @@ func writeOutdatedCache(t *testing.T, entries map[string][2]string) {
 		Casks    []any             `json:"casks"`
 	}
 	type cacheFile struct {
-		Data      brewOutdatedJSON `json:"Data"`
-		Timestamp string           `json:"Timestamp"`
+		Data      brewOutdatedJSON `json:"data"`
+		Timestamp string           `json:"timestamp"`
 	}
 
 	payload := brewOutdatedJSON{Formulae: make([]outdatedFormula, 0, len(entries)), Casks: []any{}}
@@ -417,47 +417,12 @@ func TestTouchVersionCache_Remove(t *testing.T) {
 	}
 }
 
-// func TestTouchVersionCache_Touch(t *testing.T) {
-// 	withIsolatedState(t)
-// 	mr := runner.NewMockRunner()
-
-// 	mr.ResponseFunc = func(name string, args ...string) ([]byte, error) {
-// 		if name == "brew" && len(args) >= 2 && args[0] == "list" && args[1] == "--versions" {
-// 			return []byte("foo 1.2.3\n"), nil
-// 		}
-// 		if name == "brew" && len(args) == 1 && args[0] == "list" {
-// 			return []byte("foo\n"), nil
-// 		}
-// 		return []byte{}, nil
-// 	}
-
-// 	b := NewBase(&models.Config{}, mr)
-// 	b.touchVersionCache("foo")
-
-// 	cache, err := versions.LoadCache()
-// 	if err != nil {
-// 		t.Fatalf("load cache: %v", err)
-// 	}
-// 	vi, ok := cache["foo"]
-// 	if !ok || vi.Installed != "1.2.3" {
-// 		t.Fatalf("expected cache touched to 1.2.3, got %+v (ok=%v)", vi, ok)
-// 	}
-// }
-
 func TestTouchVersionCache_Touch(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
 
-	mr.ResponseFunc = func(name string, args ...string) ([]byte, error) {
-		if name == "brew" && len(args) >= 2 && args[0] == "list" && args[1] == "--versions" {
-			return []byte("foo 1.2.3\n"), nil
-		}
-
-		if name == "brew" && len(args) == 1 && args[0] == "list" {
-			return []byte("foo\n"), nil
-		}
-		return []byte{}, nil
-	}
+	mr.AddResponse("brew|list|--formula|-1", []byte("foo\n"), nil)
+	mr.MockBrewInfoV2Formula("foo", "1.2.3", "1.2.3")
 
 	writeOutdatedCacheV2(t, map[string][2]string{
 		"foo": {"1.2.3", "1.2.4"},

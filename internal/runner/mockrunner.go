@@ -173,3 +173,14 @@ func (m *MockRunner) GetBrewOutdated(packages ...string) {
 	}
 	m.AddResponse("brew|outdated", []byte(output), nil)
 }
+
+func (m *MockRunner) MockBrewInfoV2Formula(name, installed, stable string) {
+	payload := []byte(fmt.Sprintf(`{
+		"formulae": [{
+			"name": "%s",
+			"versions": {"stable": "%s"},
+			"installed": [{"version": "%s"}]
+		}]
+	}`, name, stable, installed))
+	m.AddResponse("brew|info|--json=v2|"+name, payload, nil)
+}

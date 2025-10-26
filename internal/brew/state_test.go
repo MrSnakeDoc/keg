@@ -39,9 +39,11 @@ func withIsolatedState(t *testing.T) {
 func TestFetchState_ParseOK(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
-	// Simulate 'brew list'
-	mr.GetBrewList("foo", "bar")
-	// Simulate 'brew outdated --json=v2'
+
+	// brew list --formula -1
+	mr.AddResponse("brew|list|--formula|-1", []byte("foo\nbar\n"), nil)
+
+	// brew outdated --json=v2
 	outJSON := minimalOutdatedJSON(t, map[string][2]string{"foo": {"1.0.0", "1.1.0"}})
 	prev := mr.ResponseFunc
 	mr.ResponseFunc = func(name string, args ...string) ([]byte, error) {

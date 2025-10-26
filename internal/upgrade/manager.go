@@ -89,7 +89,7 @@ func (u *Upgrader) buildConfiguredSets() (configured []string, cfgSet map[string
 			optionalSet[name] = true
 		}
 	}
-	return
+	return configured, cfgSet, optionalSet
 }
 
 func computeDeps(st *brew.BrewState, cfgSet map[string]struct{}) []string {
@@ -127,63 +127,6 @@ func (u *Upgrader) resolveVersions(names []string) map[string]versions.Info {
 	}
 	return vi
 }
-
-// func (u *Upgrader) renderCheckTable(title string, names []string, st *brew.BrewState, cfgSet map[string]struct{}, optionalSet map[string]bool, vers map[string]versions.Info) error {
-// 	if len(names) == 0 {
-// 		return nil
-// 	}
-
-// 	if title != "" {
-// 		logger.Info(title)
-// 	}
-
-// 	p := printer.NewColorPrinter()
-// 	table := logger.CreateTable([]string{"Package", "Version", "Status", "Type"})
-
-// 	for _, name := range names {
-// 		// status & versions
-// 		var versionCell, statusCell, typeCell string
-
-// 		if _, ok := st.Installed[name]; !ok {
-// 			versionCell = "—"
-// 			statusCell = p.Warning("not installed")
-// 		} else if v, out := st.Outdated[name]; out {
-// 			// outdated: installed -> latest
-// 			oldV := p.Error(v.InstalledVersion)
-// 			newV := p.Success(v.LatestVersion)
-// 			versionCell = fmt.Sprintf("%s -> %s", oldV, newV)
-// 			statusCell = p.Warning("outdated")
-// 		} else {
-// 			// up to date: show installed version in green (fallback to cache resolver)
-// 			if info, ok := vers[name]; ok && info.Installed != "" {
-// 				versionCell = p.Success(info.Installed)
-// 			} else {
-// 				versionCell = p.Success("current")
-// 			}
-// 			statusCell = p.Success("up to date")
-// 		}
-
-// 		// type
-// 		if _, ok := cfgSet[name]; ok {
-// 			if optionalSet[name] {
-// 				typeCell = p.Warning("optional")
-// 			} else {
-// 				typeCell = "default"
-// 			}
-// 		} else {
-// 			typeCell = p.Warning("dep")
-// 		}
-
-// 		if err := table.Append([]string{name, versionCell, statusCell, typeCell}); err != nil {
-// 			return fmt.Errorf("an error occurred while appending to the table: %w", err)
-// 		}
-// 	}
-
-// 	if err := table.Render(); err != nil {
-// 		return fmt.Errorf("an error occurred while rendering the table: %w", err)
-// 	}
-// 	return nil
-// }
 
 func (u *Upgrader) renderCheckTable(
 	title string,
