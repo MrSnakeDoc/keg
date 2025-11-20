@@ -167,7 +167,7 @@ func (u *Upgrader) renderCheckTable(
 			oldV := p.Error(v.InstalledVersion)
 			newV := p.Success(v.LatestVersion)
 			versionCell = fmt.Sprintf("%s -> %s", oldV, newV)
-			statusCell = p.Warning("outdated")
+			statusCell = p.Error("outdated")
 		} else {
 			if info, ok := vers[name]; ok && info.Installed != "" {
 				versionCell = p.Success(info.Installed)

@@ -28,6 +28,10 @@ cov:
 	@go test ./... -covermode=atomic -coverprofile=coverage.out
 	@go tool cover -func=coverage.out | tail -n1
 
+vuln:
+	@echo "🔒 Checking for vulnerabilities..."
+	@govulncheck ./...
+
 
 comp:
 	@echo "🔧 Generating ZSH completion..."
