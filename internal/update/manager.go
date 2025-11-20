@@ -123,7 +123,7 @@ func (u *Updater) Execute(ctx context.Context, checkOnly bool) error {
 		return fmt.Errorf("failed to cleanup: %w", err)
 	}
 
-	logger.Info("\n\nPlease run the following command to verify the installation:\n\n  keg version\n")
+	logger.Info("\n\nPlease run the following command to verify the installation:\n\n  keg --version\n")
 	logger.Info("If you encounter any issues, please report them at: https://github.com/MrSnakeDoc/keg/issues\n")
 
 	return nil
