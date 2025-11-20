@@ -22,6 +22,3 @@ if ! echo "$commit_message" | grep -Eq "^(feat|fix|chore|docs|style|refactor|tes
   echo "  adj       : 🧩 Structure or file organization"
   exit 1
 fi
-
-#!/bin/sh
-commit_message=$(cat "$1")

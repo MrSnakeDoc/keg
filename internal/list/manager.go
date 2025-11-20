@@ -115,7 +115,7 @@ func outputItems(rows []row) error {
 		case "installed":
 			status = p.Success("installed")
 		case "missing":
-			status = p.Info("missing")
+			status = p.Warning("not installed")
 		}
 
 		if err := logger.RenderRow(table, r.DisplayName, r.Version, status, prettyType(p, r.Type)); err != nil {

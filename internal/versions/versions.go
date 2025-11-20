@@ -243,6 +243,7 @@ func (rv *Resolver) resolveChunk(ctx context.Context, names []string) (map[strin
 			res[n] = Info{FetchedAt: now}
 		}
 	}
+
 	return res, nil
 }
 
@@ -277,6 +278,7 @@ func parseBrewInfoJSON(b []byte) (map[string]brewFormula, error) {
 	for _, f := range bi.Formulae {
 		out[f.Name] = f
 	}
+
 	return out, nil
 }
 

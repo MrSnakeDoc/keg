@@ -61,6 +61,13 @@ type Base struct {
 	Config        *models.Config
 	installedPkgs map[string]bool
 	Runner        runner.CommandRunner
+	upgradedPkgs  []string
+}
+
+// BrewSessionState holds a snapshot of brew's view of the world for a
+// single HandlePackages run. It is intentionally small and read-only.
+type BrewSessionState struct {
+	State *brew.BrewState
 }
 
 // PackageHandlerOptions defines the behavior of how packages should be processed.
@@ -182,6 +189,16 @@ func DefaultPackageHandlerOptions(action PackageAction) PackageHandlerOptions {
 	}
 }
 
+// loadSessionState initializes a BrewSessionState for operations that need a
+// global view of installed/outdated packages (typically upgrades).
+func (b *Base) loadSessionState() (*BrewSessionState, error) {
+	st, err := brew.FetchState(b.Runner)
+	if err != nil {
+		return nil, err
+	}
+	return &BrewSessionState{State: st}, nil
+}
+
 // HandlePackages performs the given action on a filtered list of packages.
 //
 // Parameters:
@@ -194,15 +211,31 @@ func DefaultPackageHandlerOptions(action PackageAction) PackageHandlerOptions {
 //   - If opts.Packages is non-empty, only those packages are handled
 //   - Otherwise, all packages passing FilterFunc are considered
 func (b *Base) HandlePackages(opts PackageHandlerOptions) error {
+	// Ensure finalizeUpgrades always runs for upgrades, even on early returns
+	if opts.Action.ActionVerb == "upgrade" {
+		defer b.finalizeUpgrades()
+	}
+
+	// Preload a shared brew session for actions that care about global state.
+	var session *BrewSessionState
+	if opts.Action.ActionVerb == "upgrade" {
+		var err error
+		session, err = b.loadSessionState()
+		if err != nil {
+			return fmt.Errorf("failed to load brew state: %w", err)
+		}
+	}
+
 	if opts.FilterFunc == nil {
 		opts.FilterFunc = func(*models.Package) bool { return true }
 	}
 	if opts.ValidateFunc == nil {
 		opts.ValidateFunc = func(string) bool { return true }
 	}
+
 	if len(opts.Packages) > 0 {
 		for _, pkgName := range opts.Packages {
-			if err := b.handleSelectedPackage(opts.Action, pkgName, opts.ValidateFunc, opts.AllowAdHoc); err != nil {
+			if err := b.handleSelectedPackageWithSession(opts.Action, pkgName, opts.ValidateFunc, opts.AllowAdHoc, session); err != nil {
 				return fmt.Errorf("failed to %s package %s: %w", opts.Action.ActionVerb, pkgName, err)
 			}
 		}
@@ -214,11 +247,78 @@ func (b *Base) HandlePackages(opts PackageHandlerOptions) error {
 			continue
 		}
 		name := b.GetPackageName(&pkg)
-		if err := b.handleSelectedPackage(opts.Action, name, opts.ValidateFunc, opts.AllowAdHoc); err != nil {
+		if err := b.handleSelectedPackageWithSession(opts.Action, name, opts.ValidateFunc, opts.AllowAdHoc, session); err != nil {
 			return fmt.Errorf("failed to %s package %s: %w", opts.Action.ActionVerb, name, err)
 		}
 	}
 	return nil
+}
+
+func (b *Base) finalizeUpgrades() {
+	if len(b.upgradedPkgs) == 0 {
+		return
+	}
+
+	logger.Info("Updating version cache for upgraded packages...")
+
+	// dedupe to avoid double work
+	seen := make(map[string]struct{}, len(b.upgradedPkgs))
+	uniq := make([]string, 0, len(b.upgradedPkgs))
+	for _, n := range b.upgradedPkgs {
+		if _, ok := seen[n]; ok {
+			continue
+		}
+		seen[n] = struct{}{}
+		uniq = append(uniq, n)
+	}
+
+	// 3) bulk refresh version cache per upgraded package (after cleanup)
+	b.bulkTouchVersionCache(uniq)
+
+	// reset for next HandlePackages run
+	b.upgradedPkgs = b.upgradedPkgs[:0]
+}
+
+// bulkTouchVersionCache updates the versions cache for a list of upgraded
+// packages in a single pass, avoiding redundant brew and resolver calls.
+func (b *Base) bulkTouchVersionCache(names []string) {
+	if len(names) == 0 {
+		return
+	}
+
+	res := versions.NewResolver(b.Runner)
+
+	// 1) Snapshot before (likely stale) for all names
+	before, err := res.ResolveBulk(context.Background(), names)
+	if err != nil {
+		logger.Debug("bulk versions.ResolveBulk (before) failed: %v", err)
+		return
+	}
+
+	// 2) Evict and re-resolve to force fresh reads from brew
+	for _, n := range names {
+		_ = res.Remove(n)
+	}
+	after, err := res.ResolveBulk(context.Background(), names)
+	if err != nil {
+		logger.Debug("bulk versions.ResolveBulk (fresh) failed: %v", err)
+		return
+	}
+
+	// 3) Only write if value actually changed (avoid useless writes)
+	for _, n := range names {
+		fresh, ok := after[n]
+		if !ok || fresh.Installed == "" {
+			continue
+		}
+		prev := before[n]
+		if fresh.Installed == prev.Installed {
+			continue
+		}
+		if err := res.Touch(n, fresh.Installed); err != nil {
+			logger.Debug("versions.Touch failed for %s: %v", n, err)
+		}
+	}
 }
 
 // resolvePackageScoped behaves like resolvePackage, but if not found in the
@@ -247,21 +347,22 @@ func (b *Base) guardUninstall(isInstalled bool, name string, verb string) error 
 }
 
 // guardUpgrade decides whether an upgrade should run.
-func (b *Base) guardUpgrade(isInstalled bool, displayName, execName string) (bool, error) {
+
+func (b *Base) guardUpgrade(session *BrewSessionState, isInstalled bool, displayName, execName string) bool {
 	if !isInstalled {
 		logger.Info("Skipping %s: package not installed", displayName)
-		return false, nil
+		return false
 	}
 
-	state, err := brew.FetchState(b.Runner)
-	if err != nil {
-		return false, fmt.Errorf("failed to check update status: %w", err)
+	if session == nil || session.State == nil {
+		// Without a session, we conservatively attempt the upgrade.
+		return true
 	}
-	if _, out := state.Outdated[execName]; !out {
+	if _, out := session.State.Outdated[execName]; !out {
 		logger.Success("%s is already up to date", displayName)
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
 // handleSelectedPackage executes the given action on a single package.
@@ -285,6 +386,18 @@ func (b *Base) handleSelectedPackage(
 	isValid func(string) bool,
 	allowAdHoc bool,
 ) error {
+	return b.handleSelectedPackageWithSession(action, humanName, isValid, allowAdHoc, nil)
+}
+
+// handleSelectedPackageWithSession is the internal implementation that optionally
+// receives a BrewSessionState to avoid repeated global brew calls.
+func (b *Base) handleSelectedPackageWithSession(
+	action PackageAction,
+	humanName string,
+	isValid func(string) bool,
+	allowAdHoc bool,
+	session *BrewSessionState,
+) error {
 	// 1. Resolve & canonicalise
 	pkg, err := b.resolvePackageScoped(humanName, allowAdHoc)
 	if err != nil {
@@ -300,9 +413,8 @@ func (b *Base) handleSelectedPackage(
 	}
 
 	if action.ActionVerb == "upgrade" {
-		cont, err := b.guardUpgrade(installed, humanName, execName)
-		if err != nil || !cont {
-			return err
+		if !b.guardUpgrade(session, installed, humanName, execName) {
+			return nil
 		}
 	}
 
@@ -327,14 +439,27 @@ func (b *Base) handleSelectedPackage(
 			action.ActionVerb, humanName, err)
 	}
 
-	// 4. Post-run housekeeping
-	if action.ActionVerb == "upgrade" {
-		if _, err := brew.FetchOutdatedPackages(b.Runner); err != nil {
-			logger.LogError("Failed to update outdated cache: %v", err)
+	// Post-run bookkeeping per action
+	switch action.ActionVerb {
+	case "upgrade":
+		// bulk finalize will do: cleanup -> refresh outdated -> bulk touch per pkg
+		b.upgradedPkgs = append(b.upgradedPkgs, execName)
+
+	case "install":
+		// immediately reflect reality so 'check' affiche la vraie version
+		if b.installedPkgs != nil {
+			b.installedPkgs[execName] = true
+		}
+		b.touchVersionCache(execName) // force resolver to record the installed version
+
+	case "uninstall":
+		// keep internal cache coherent + drop version cache
+		delete(b.installedPkgs, execName)
+		err = versions.NewResolver(b.Runner).Remove(execName)
+		if err != nil {
+			logger.Debug("versions.Remove failed for %s: %v", execName, err)
 		}
 	}
-
-	b.touchVersionCache(execName)
 
 	logger.Success("%s has been %s successfully!",
 		humanName, pastTense[action.ActionVerb])
@@ -350,31 +475,15 @@ func (b *Base) handleSelectedPackage(
 //   - If the package is no longer installed, it removes it from the cache
 //   - Otherwise, it refreshes the cached version if it has changed
 func (b *Base) touchVersionCache(execName string) {
-	st, err := brew.FetchState(b.Runner)
-	if err != nil {
-		logger.Debug("versions.Touch skipped: fetch state failed: %v", err)
-		return
-	}
-	if _, ok := st.Installed[execName]; !ok {
-		// Not installed anymore → purge from versions cache
-		res := versions.NewResolver(b.Runner)
-		if err := res.Remove(execName); err != nil {
-			logger.Debug("versions.Remove failed for %s: %v", execName, err)
-		}
-		return
-	}
-
 	res := versions.NewResolver(b.Runner)
 
-	// 1) Snapshot before (most likely stale)
 	before, err := res.ResolveBulk(context.Background(), []string{execName})
 	if err != nil {
 		logger.Debug("versions.ResolveBulk (before) failed for %s: %v", execName, err)
 		return
 	}
-	prev := before[execName] // zero value if missing
+	prev := before[execName]
 
-	// 2) Evict cache entry and re-resolve to force a fresh read from brew
 	_ = res.Remove(execName)
 	after, err := res.ResolveBulk(context.Background(), []string{execName})
 	if err != nil {
@@ -387,7 +496,6 @@ func (b *Base) touchVersionCache(execName string) {
 		return
 	}
 
-	// 3) Only write if value actually changed (avoid useless writes)
 	if fresh.Installed != prev.Installed {
 		if err := res.Touch(execName, fresh.Installed); err != nil {
 			logger.Debug("versions.Touch failed for %s: %v", execName, err)

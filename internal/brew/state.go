@@ -52,12 +52,6 @@ func readCache(filename string) (*brewOutdatedJSON, error) {
 }
 
 func FetchOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
-	// Ensure brew cleanup is run first
-	_, err := r.Run(context.Background(), 5*time.Second, runner.Capture, "brew", "cleanup")
-	if err != nil {
-		return nil, fmt.Errorf("failed to run brew cleanup: %w", err)
-	}
-
 	// 1. call to `brew outdated --json=v2`
 	output, err := r.Run(context.Background(), 120*time.Second,
 		runner.Capture, "brew", "outdated", "--json=v2")
@@ -79,7 +73,7 @@ func FetchOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
 	}
 
 	// 4. Write the cache
-	cache := cacheFile{Data: &outdated, Timestamp: time.Now()}
+	var cache cacheFile
 	if err := utils.CreateFile(
 		utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile),
 		cache, "json", 0o600); err != nil {
