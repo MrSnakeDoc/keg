@@ -6,7 +6,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/olekukonko/tablewriter v1.1.1
 	github.com/spf13/cobra v1.10.1
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
