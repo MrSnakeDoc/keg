@@ -9,7 +9,7 @@ import (
 func MustSet(key, val string) (old string) {
 	old, _ = os.LookupEnv(key)
 	if err := os.Setenv(key, val); err != nil {
-		logger.LogError("envutil: " + err.Error())
+		logger.LogError("envutil: %v", err)
 	}
 	return old
 }

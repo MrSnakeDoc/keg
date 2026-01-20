@@ -20,7 +20,7 @@ func warningBrewMessages() {
 func IsHomebrewInstalled(cmd *cobra.Command, args []string, next func(*cobra.Command, []string) error) error {
 	if ok := utils.CommandExists("brew"); !ok {
 		if cmd.Root().SilenceErrors {
-			logger.LogError(ErrHomebrewMissing.Error())
+			logger.LogError("%s", ErrHomebrewMissing.Error())
 		}
 		warningBrewMessages()
 		return ErrHomebrewMissing
