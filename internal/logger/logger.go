@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -26,6 +27,7 @@ var (
 	p        *printer.ColorPrinter
 	curLevel = zapcore.InfoLevel
 	ready    atomic.Bool
+	useJSON  atomic.Bool // Track if we're in JSON mode
 )
 
 // Configure sets up the global logger.
@@ -36,6 +38,10 @@ func Configure(opts Options) {
 	if opts.Out != nil {
 		out = opts.Out
 	}
+
+	// Store JSON mode for fast path
+	useJSON.Store(opts.JSON)
+
 	encCfg := zap.NewProductionEncoderConfig()
 	encCfg.TimeKey = ""
 	encCfg.LevelKey = ""
@@ -108,14 +114,24 @@ func Out() io.Writer {
 	return out
 }
 
-// ---- Public logging API (kept stable) ----
+// ---- Public logging API (optimized for minimal lock contention) ----
 
 func Info(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
+	// Format OUTSIDE the lock (80% of the work)
+	formatted := formatMessage("✨ ", msg, args...)
+
+	// Fast path: direct write for non-JSON mode
+	if !useJSON.Load() {
+		writeDirect(formatted)
+		return
+	}
+
+	// JSON mode: use zap
 	mu.RLock()
-	zlog.Infof(p.Info("✨ "+msg, args...))
+	zlog.Info(formatted)
 	mu.RUnlock()
 }
 
@@ -123,8 +139,15 @@ func Success(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
+	formatted := formatMessage("✅ ", msg, args...)
+
+	if !useJSON.Load() {
+		writeDirect(p.Success(formatted))
+		return
+	}
+
 	mu.RLock()
-	zlog.Infof(p.Success("✅ "+msg, args...))
+	zlog.Info(p.Success(formatted))
 	mu.RUnlock()
 }
 
@@ -132,8 +155,15 @@ func LogError(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
+	formatted := formatMessage("❌ ", msg, args...)
+
+	if !useJSON.Load() {
+		writeDirect(p.Error(formatted))
+		return
+	}
+
 	mu.RLock()
-	zlog.Errorf(p.Error("❌ "+msg, args...))
+	zlog.Error(p.Error(formatted))
 	mu.RUnlock()
 }
 
@@ -141,8 +171,15 @@ func Warn(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
+	formatted := formatMessage("⚠️ ", msg, args...)
+
+	if !useJSON.Load() {
+		writeDirect(p.Warning(formatted))
+		return
+	}
+
 	mu.RLock()
-	zlog.Warnf(p.Warning("⚠️ "+msg, args...))
+	zlog.Warn(p.Warning(formatted))
 	mu.RUnlock()
 }
 
@@ -150,8 +187,10 @@ func Fatal(msg string, args ...interface{}) {
 	if !ensureReady() {
 		os.Exit(1)
 	}
+	formatted := formatMessage("💥 ", msg, args...)
+
 	mu.RLock()
-	zlog.Fatalf(p.Error("💥 "+msg, args...))
+	zlog.Fatal(p.Error(formatted))
 	mu.RUnlock()
 }
 
@@ -159,21 +198,32 @@ func WarnInline(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
-	// inline write directly to out to preserve non-line break semantics
-	mu.RLock()
-	defer mu.RUnlock()
-	if out == nil {
-		out = os.Stdout
-	}
-	_, _ = io.WriteString(out, p.Warning("⚠️ "+msg))
+	formatted := formatMessage("⚠️ ", msg, args...)
+	writeDirect(p.Warning(formatted))
 }
 
 func Debug(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
+
+	// Check if debug level is enabled
 	mu.RLock()
-	zlog.Debugf(p.Debug("🛠️  "+msg, args...))
+	if curLevel > zapcore.DebugLevel {
+		mu.RUnlock()
+		return
+	}
+	mu.RUnlock()
+
+	formatted := formatMessage("🛠️  ", msg, args...)
+
+	if !useJSON.Load() {
+		writeDirect(p.Debug(formatted))
+		return
+	}
+
+	mu.RLock()
+	zlog.Debug(p.Debug(formatted))
 	mu.RUnlock()
 }
 
@@ -223,4 +273,27 @@ func ensureReady() bool {
 		return false
 	}
 	return true
+}
+
+// formatMessage formats a message with optional args outside of any lock.
+func formatMessage(prefix, msg string, args ...interface{}) string {
+	if len(args) > 0 {
+		return prefix + fmt.Sprintf(msg, args...)
+	}
+	return prefix + msg
+}
+
+// writeDirect writes directly to output with minimal locking.
+// Used for non-JSON mode to bypass zap overhead.
+func writeDirect(msg string) {
+	mu.RLock()
+	w := out
+	mu.RUnlock()
+
+	if w == nil {
+		w = os.Stdout
+	}
+
+	// Write directly without holding lock
+	_, _ = fmt.Fprintln(w, p.Info(msg))
 }
