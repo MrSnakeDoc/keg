@@ -19,26 +19,46 @@ type MiddlewareChain func(factory CommandFactory) CommandFactory
 
 type contextKey string
 
+// UseMiddlewareChain wraps a CommandFactory with a chain of middlewares.
+// Optimized: Pre-stores the middleware slice to avoid repeated varargs expansion.
 func UseMiddlewareChain(middlewares ...MiddlewareFunc) MiddlewareChain {
+	// Pre-allocate: copy middlewares slice once at construction time
+	mwCopy := make([]MiddlewareFunc, len(middlewares))
+	copy(mwCopy, middlewares)
+	mwLen := len(mwCopy)
+
 	return func(factory CommandFactory) CommandFactory {
 		return func() *cobra.Command {
 			cmd := factory()
 			orig := cmd.PreRunE
 
-			var chain func(i int, c *cobra.Command, a []string) error
-			chain = func(i int, c *cobra.Command, a []string) error {
-				if i >= len(middlewares) {
+			// Inject a PreRunE that executes the middleware chain
+			cmd.PreRunE = func(c *cobra.Command, a []string) error {
+				// Fast path: no middlewares
+				if mwLen == 0 {
 					if orig != nil {
 						return orig(c, a)
 					}
 					return nil
 				}
-				return middlewares[i](c, a, func(nc *cobra.Command, na []string) error {
-					return chain(i+1, nc, na)
-				})
-			}
 
-			cmd.PreRunE = func(c *cobra.Command, a []string) error { return chain(0, c, a) }
+				// Execute middleware chain
+				// We still need closures here (it's the nature of middleware pattern)
+				// but we minimize allocations by reusing the pre-stored slice
+				var chain func(int) error
+				chain = func(i int) error {
+					if i >= mwLen {
+						if orig != nil {
+							return orig(c, a)
+						}
+						return nil
+					}
+					return mwCopy[i](c, a, func(nc *cobra.Command, na []string) error {
+						return chain(i + 1)
+					})
+				}
+				return chain(0)
+			}
 			return cmd
 		}
 	}
