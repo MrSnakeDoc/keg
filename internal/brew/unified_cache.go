@@ -103,13 +103,8 @@ func ResetCache() {
 
 // IsInstalled checks if a package is installed.
 func (c *UnifiedCache) IsInstalled(name string) bool {
-	c.mu.RLock()
-	needsRefresh := c.needsRefreshLocked()
-	c.mu.RUnlock()
-
-	if needsRefresh {
-		_ = c.Refresh(context.Background(), false)
-	}
+	// Refresh if needed (internally checks TTL and holds appropriate locks)
+	_ = c.Refresh(context.Background(), false)
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -175,6 +170,7 @@ func (c *UnifiedCache) Refresh(ctx context.Context, force bool) error {
 	// Step 1: Get installed packages (brew list)
 	installed, err := c.fetchInstalledPackages()
 	if err != nil {
+		// Keep existing cache on error - better stale than empty
 		return fmt.Errorf("failed to fetch installed packages: %w", err)
 	}
 
