@@ -3,11 +3,10 @@ package upgrade
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/MrSnakeDoc/keg/internal/brew"
 	"github.com/MrSnakeDoc/keg/internal/logger"
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
@@ -38,51 +37,28 @@ func withIsolatedState(t *testing.T) {
 	tmp := t.TempDir()
 	_ = os.Setenv("HOME", tmp)
 	_ = os.Setenv("XDG_STATE_HOME", tmp)
+	brew.ResetCache()
 }
 
-func writeOutdatedCache(t *testing.T, entries map[string][2]string) {
-	t.Helper()
-	home := os.Getenv("HOME")
-	stateDir := filepath.Join(home, ".local", "state", "keg")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("mkdir state dir: %v", err)
-	}
-	cachePath := filepath.Join(stateDir, "keg_brew_update.json")
-
-	type outdatedFormula struct {
-		Name              string   `json:"name"`
-		InstalledVersions []string `json:"installed_versions"`
-		CurrentVersion    string   `json:"current_version"`
-	}
-	type brewOutdatedJSON struct {
-		Formulae []outdatedFormula `json:"formulae"`
-		Casks    []any             `json:"casks"`
-	}
-	type cacheFile struct {
-		Data      brewOutdatedJSON `json:"Data"`
-		Timestamp string           `json:"Timestamp"`
-	}
-
-	payload := brewOutdatedJSON{Formulae: make([]outdatedFormula, 0, len(entries)), Casks: []any{}}
-	for name, pair := range entries {
-		payload.Formulae = append(payload.Formulae, outdatedFormula{
-			Name:              name,
-			InstalledVersions: []string{pair[0]},
-			CurrentVersion:    pair[1],
+// setupOutdatedMocks configures MockRunner to return proper outdated data for the unified cache
+func setupOutdatedMocks(mr *runner.MockRunner, outdatedMap map[string][2]string) {
+	// Build outdated JSON response
+	formulae := make([]map[string]interface{}, 0, len(outdatedMap))
+	for name, versions := range outdatedMap {
+		formulae = append(formulae, map[string]interface{}{
+			"name":               name,
+			"installed_versions": []string{versions[0]},
+			"current_version":    versions[1],
 		})
 	}
-	wrapper := cacheFile{
-		Data:      payload,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
+
+	outdatedJSON := map[string]interface{}{
+		"formulae": formulae,
+		"casks":    []interface{}{},
 	}
 
-	b, err := json.Marshal(wrapper)
-	if err != nil {
-		t.Fatalf("marshal cache: %v", err)
-	}
-	if err := os.WriteFile(cachePath, b, 0o600); err != nil {
-		t.Fatalf("write cache: %v", err)
-	}
+	data, _ := json.Marshal(outdatedJSON)
+	mr.AddResponse("brew|outdated|--json=v2", data, nil)
 }
 
 func primeInstalled(mr *runner.MockRunner, pkgs ...string) {
@@ -125,7 +101,7 @@ func TestCheckUpgrades_ManifestOnly(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
 	primeInstalled(mr, "foo")
-	writeOutdatedCache(t, map[string][2]string{})
+	setupOutdatedMocks(mr, map[string][2]string{})
 
 	cfg := models.Config{Packages: []models.Package{{Command: "foo"}}}
 	up := New(&cfg, mr)
@@ -139,7 +115,7 @@ func TestCheckUpgrades_WithAll_IncludesDeps(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
 	primeInstalled(mr, "foo", "dep")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"dep": {"0.9.0", "1.0.0"},
 	})
 
@@ -155,7 +131,7 @@ func TestCheckUpgrades_WithArgs_SingleAndMultiple(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
 	primeInstalled(mr, "foo", "bar")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"foo": {"1.0.0", "1.1.0"},
 	})
 
@@ -183,7 +159,7 @@ func TestExecute_WithArgs_UpgradesSingle(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr, "foo")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"foo": {"1.0.0", "1.1.0"},
 	})
 
@@ -207,7 +183,7 @@ func TestExecute_WithMultipleArgs_UpgradesAll(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr, "foo", "bar", "baz")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"foo": {"1.0.0", "1.1.0"},
 		"bar": {"1.0.0", "1.1.0"},
 		"baz": {"1.0.0", "1.1.0"},
@@ -240,7 +216,7 @@ func TestExecute_All_ManifestOnly(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr, "foo", "bar")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"foo": {"1.0.0", "1.1.0"},
 		"bar": {"2.0.0", "2.1.0"},
 	})
@@ -262,7 +238,7 @@ func TestExecute_All_IncludesDeps(t *testing.T) {
 
 	// installed: foo (manifest) + dep (ad-hoc)
 	primeInstalled(mr, "foo", "dep")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"foo": {"1.0.0", "1.1.0"},
 		"dep": {"0.9.0", "1.0.0"},
 	})
@@ -289,7 +265,7 @@ func TestExecute_OptionalNotInstalled_IsSkipped(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr) // nothing installed
-	writeOutdatedCache(t, map[string][2]string{})
+	setupOutdatedMocks(mr, map[string][2]string{})
 
 	up := New(&cfg, mr)
 
@@ -308,7 +284,7 @@ func TestExecute_AdHoc_Targeted(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr, "foo", "dep")
-	writeOutdatedCache(t, map[string][2]string{
+	setupOutdatedMocks(mr, map[string][2]string{
 		"dep": {"0.9.0", "1.0.0"},
 	})
 
@@ -329,7 +305,7 @@ func TestExecute_AdHoc_Targeted_NotInstalled(t *testing.T) {
 	mr := runner.NewMockRunner()
 
 	primeInstalled(mr, "foo")
-	writeOutdatedCache(t, map[string][2]string{})
+	setupOutdatedMocks(mr, map[string][2]string{})
 
 	up := New(&cfg, mr)
 
