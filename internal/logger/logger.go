@@ -125,7 +125,7 @@ func Info(msg string, args ...interface{}) {
 
 	// Fast path: direct write for non-JSON mode
 	if !useJSON.Load() {
-		writeDirect(formatted)
+		writeDirect(p.Info(formatted))
 		return
 	}
 
@@ -285,6 +285,7 @@ func formatMessage(prefix, msg string, args ...interface{}) string {
 
 // writeDirect writes directly to output with minimal locking.
 // Used for non-JSON mode to bypass zap overhead.
+// Expects msg to be already fully formatted (emoji + color).
 func writeDirect(msg string) {
 	mu.RLock()
 	w := out
@@ -295,5 +296,5 @@ func writeDirect(msg string) {
 	}
 
 	// Write directly without holding lock
-	_, _ = fmt.Fprintln(w, p.Info(msg))
+	_, _ = fmt.Fprintln(w, msg)
 }
