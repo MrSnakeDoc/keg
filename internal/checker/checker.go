@@ -90,7 +90,7 @@ func loadUpdateState() (*config.UpdateState, error) {
 	}
 
 	if err := utils.FileReader(updateStateFile, "json", &state); err != nil {
-		logger.Debug("failed to read update state: %w", err)
+		logger.Debug("failed to read update state: %v", err)
 		return nil, fmt.Errorf("failed to read update state: %w", err)
 	}
 
@@ -106,7 +106,7 @@ func saveUpdateState(state config.UpdateState) error {
 	stateFile := filepath.Join(home, ".local", "state", "keg", "update-check.json")
 
 	if err := utils.CreateFile(stateFile, state, "json", 0o644); err != nil {
-		logger.Debug("Failed to create update state file: %v", err)
+		logger.Debug("failed to create update state file: %v", err)
 		return fmt.Errorf("failed to create update state file: %w", err)
 	}
 

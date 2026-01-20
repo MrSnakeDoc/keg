@@ -26,7 +26,7 @@ func DefaultUpdateState() map[string]interface{} {
 func EnsureUpdateStateFileExists() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		logger.Debug("failed to get user home directory: %w", err)
+		logger.Debug("failed to get user home directory: %v", err)
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
 
@@ -38,7 +38,7 @@ func EnsureUpdateStateFileExists() (string, error) {
 		defaultState := DefaultUpdateState()
 
 		if err = CreateFile(updateStateFile, defaultState, "json", 0o644); err != nil {
-			logger.Debug("failed to create update state file: %w", err)
+			logger.Debug("failed to create update state file: %v", err)
 			return "", fmt.Errorf("failed to create update state file: %w", err)
 		}
 		return updateStateFile, nil

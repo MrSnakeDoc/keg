@@ -9,7 +9,7 @@ import (
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		logger.LogError(err.Error())
+		logger.LogError("%v", err)
 		os.Exit(1)
 	}
 }
