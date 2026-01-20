@@ -103,9 +103,7 @@ func NewBase(config *models.Config, r runner.CommandRunner) *Base {
 
 	cache, err := brew.GetCache(r)
 	if err != nil {
-		logger.Debug("failed to initialize unified cache: %v", err)
-		// Fallback to empty cache
-		cache = &brew.UnifiedCache{}
+		logger.Fatal("failed to initialize unified cache: %v", err)
 	}
 
 	return &Base{
