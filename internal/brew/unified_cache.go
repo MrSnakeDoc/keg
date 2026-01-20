@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -472,22 +473,32 @@ func (c *UnifiedCache) saveToDiskLocked() error {
 // Helper functions
 
 func splitLines(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+
 	result := make([]string, 0)
-	current := ""
+	var line strings.Builder
+	line.Grow(64) // Pre-allocate reasonable line size
+
 	for _, r := range s {
 		if r == '\n' {
-			trimmed := trimSpace(current)
+			trimmed := trimSpace(line.String())
 			if trimmed != "" {
 				result = append(result, trimmed)
 			}
-			current = ""
+			line.Reset()
 		} else {
-			current += string(r)
+			line.WriteRune(r)
 		}
 	}
-	trimmed := trimSpace(current)
-	if trimmed != "" {
-		result = append(result, trimmed)
+
+	// Handle last line if no trailing newline
+	if line.Len() > 0 {
+		trimmed := trimSpace(line.String())
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
 	}
 
 	return result
