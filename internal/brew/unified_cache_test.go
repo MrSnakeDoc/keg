@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockRunner implements runner.CommandRunner for testing
+// testRunner implements runner.CommandRunner for testing
 type testRunner struct {
 	listOutput     string
 	listErr        error
@@ -164,6 +164,9 @@ func TestUnifiedCache_MarkUninstalled(t *testing.T) {
 				Installed:        true,
 				InstalledVersion: "1.0.0",
 			},
+			"curl": {
+				Installed: true,
+			},
 		},
 		cachePath: filepath.Join(t.TempDir(), "cache.json"),
 	}
@@ -171,9 +174,10 @@ func TestUnifiedCache_MarkUninstalled(t *testing.T) {
 	err := cache.MarkUninstalled("wget")
 	require.NoError(t, err)
 
-	assert.False(t, cache.Packages["wget"].Installed)
-	assert.Empty(t, cache.Packages["wget"].InstalledVersion)
-	assert.False(t, cache.Packages["wget"].Outdated)
+	// Package should be completely removed from cache
+	assert.NotContains(t, cache.Packages, "wget", "uninstalled package should be deleted from cache")
+	// Other packages should remain
+	assert.Contains(t, cache.Packages, "curl")
 }
 
 func TestUnifiedCache_RefreshVersions_EmptyList(t *testing.T) {
