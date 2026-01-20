@@ -156,10 +156,14 @@ func (l *Lister) buildConfigured() (names []string, cfgSet map[string]struct{}, 
 }
 
 func (l *Lister) computeDeps(installed map[string]bool, cfgSet map[string]struct{}) []string {
-	return utils.Filter(utils.Keys(installed), func(n string) bool {
-		_, ok := cfgSet[n]
-		return !ok
-	})
+	// Optimized: single-pass extraction + filtering (no intermediate slice)
+	result := make([]string, 0, len(installed))
+	for k := range installed {
+		if _, ok := cfgSet[k]; !ok {
+			result = append(result, k)
+		}
+	}
+	return result
 }
 
 // prettyType colors only the UI label, not the sorting value.

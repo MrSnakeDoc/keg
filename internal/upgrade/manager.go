@@ -93,11 +93,14 @@ func (u *Upgrader) buildConfiguredSets() (configured []string, cfgSet map[string
 }
 
 func computeDeps(st *brew.BrewState, cfgSet map[string]struct{}) []string {
-	installed := utils.Keys(st.Installed)
-	return utils.Filter(installed, func(name string) bool {
-		_, ok := cfgSet[name]
-		return !ok
-	})
+	// Optimized: single-pass extraction + filtering (no intermediate slice)
+	result := make([]string, 0, len(st.Installed))
+	for k := range st.Installed {
+		if _, ok := cfgSet[k]; !ok {
+			result = append(result, k)
+		}
+	}
+	return result
 }
 
 func (u *Upgrader) normalizeArgs(args []string) []string {
@@ -141,7 +144,7 @@ func (u *Upgrader) renderCheckTable(
 	}
 
 	if title != "" {
-		logger.Info(title)
+		logger.Info("%s", title)
 	}
 
 	p := printer.NewColorPrinter()

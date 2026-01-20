@@ -77,8 +77,12 @@ func ListInstalled(r runner.CommandRunner) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Keys is presumably a generic helper you already have; if not, do a simple range.
-	return Keys(set), nil
+	// Extract keys inline
+	result := make([]string, 0, len(set))
+	for k := range set {
+		result = append(result, k)
+	}
+	return result, nil
 }
 
 // RunBrewCommand executes a brew command and handles warnings
