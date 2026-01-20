@@ -52,16 +52,16 @@ type PackageAction struct {
 //
 // Fields:
 //   - Config: The user configuration containing package definitions
-//   - installedPkgs: A cache of installed packages to avoid repeated checks
+//   - cache: Unified cache for all brew operations
 //   - Runner: A CommandRunner instance to execute system commands
 //
-// It stores the user configuration, the internal cache of installed packages,
-// and uses a CommandRunner to interact with the underlying system.
+// It stores the user configuration, uses the unified cache,
+// and interacts with the underlying system via CommandRunner.
 type Base struct {
-	Config        *models.Config
-	installedPkgs map[string]bool
-	Runner        runner.CommandRunner
-	upgradedPkgs  []string
+	Config       *models.Config
+	cache        *brew.UnifiedCache
+	Runner       runner.CommandRunner
+	upgradedPkgs []string
 }
 
 // BrewSessionState holds a snapshot of brew's view of the world for a
@@ -97,10 +97,21 @@ type PackageHandlerOptions struct {
 // Returns:
 //   - *Base: pointer to the new Base instance with initialized state
 func NewBase(config *models.Config, r runner.CommandRunner) *Base {
+	if r == nil {
+		r = &runner.ExecRunner{}
+	}
+
+	cache, err := brew.GetCache(r)
+	if err != nil {
+		logger.Debug("failed to initialize unified cache: %v", err)
+		// Fallback to empty cache
+		cache = &brew.UnifiedCache{}
+	}
+
 	return &Base{
-		Config:        config,
-		installedPkgs: make(map[string]bool),
-		Runner:        r,
+		Config: config,
+		cache:  cache,
+		Runner: r,
 	}
 }
 
@@ -131,28 +142,12 @@ func (b *Base) FindPackage(name string) (*models.Package, bool) {
 //   - bool: true if the package is installed, false otherwise
 //
 // Notes:
-//   - This function lazily loads the installed package list once on first call.
+//   - This function uses the unified cache which auto-refreshes when stale.
 func (b *Base) IsPackageInstalled(name string) bool {
-	if len(b.installedPkgs) == 0 {
-		if err := b.loadInstalledPackages(); err != nil {
-			return false
-		}
+	if b.cache == nil {
+		return false
 	}
-	return b.installedPkgs[name]
-}
-
-// loadInstalledPackages fetches the list of installed packages from the system
-// using the provided runner and a mapping function.
-//
-// Returns:
-//   - error: non-nil if the package map could not be loaded
-func (b *Base) loadInstalledPackages() error {
-	m, err := utils.InstalledSet(b.Runner)
-	if err != nil {
-		return err
-	}
-	b.installedPkgs = m
-	return nil
+	return b.cache.IsInstalled(name)
 }
 
 // GetPackageName returns the most appropriate name to use for a package.
@@ -442,19 +437,25 @@ func (b *Base) handleSelectedPackageWithSession(
 	// Post-run bookkeeping per action
 	switch action.ActionVerb {
 	case "upgrade":
-		// bulk finalize will do: cleanup -> refresh outdated -> bulk touch per pkg
+		// Mark as upgraded for bulk finalization
 		b.upgradedPkgs = append(b.upgradedPkgs, execName)
+		// Update cache immediately
+		if b.cache != nil {
+			_ = b.cache.MarkUpgraded(execName, "") // version will be fetched in finalize
+		}
 
 	case "install":
-		// immediately reflect reality so 'check' affiche la vraie version
-		if b.installedPkgs != nil {
-			b.installedPkgs[execName] = true
+		// Update unified cache to reflect installation
+		if b.cache != nil {
+			_ = b.cache.MarkInstalled(execName, "")
 		}
 		b.touchVersionCache(execName) // force resolver to record the installed version
 
 	case "uninstall":
-		// keep internal cache coherent + drop version cache
-		delete(b.installedPkgs, execName)
+		// Update unified cache to reflect removal
+		if b.cache != nil {
+			_ = b.cache.MarkUninstalled(execName)
+		}
 		err = versions.NewResolver(b.Runner).Remove(execName)
 		if err != nil {
 			logger.Debug("versions.Remove failed for %s: %v", execName, err)
