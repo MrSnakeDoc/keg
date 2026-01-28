@@ -43,20 +43,21 @@ func UseMiddlewareChain(middlewares ...MiddlewareFunc) MiddlewareChain {
 				}
 
 				// Execute middleware chain
-				// Chain now properly propagates modified cmd/args through the chain
-				var chain func(*cobra.Command, []string, int) error
-				chain = func(currentCmd *cobra.Command, currentArgs []string, i int) error {
+				// We still need closures here (it's the nature of middleware pattern)
+				// but we minimize allocations by reusing the pre-stored slice
+				var chain func(int) error
+				chain = func(i int) error {
 					if i >= mwLen {
 						if orig != nil {
-							return orig(currentCmd, currentArgs)
+							return orig(c, a)
 						}
 						return nil
 					}
-					return mwCopy[i](currentCmd, currentArgs, func(nc *cobra.Command, na []string) error {
-						return chain(nc, na, i+1)
+					return mwCopy[i](c, a, func(nc *cobra.Command, na []string) error {
+						return chain(i + 1)
 					})
 				}
-				return chain(c, a, 0)
+				return chain(0)
 			}
 			return cmd
 		}
