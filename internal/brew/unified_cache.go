@@ -343,7 +343,6 @@ func (c *UnifiedCache) MarkUpgraded(name, newVersion string) error {
 	defer c.mu.Unlock()
 
 	state := c.Packages[name]
-	state.Installed = true
 	state.InstalledVersion = newVersion
 	state.LatestVersion = newVersion
 	state.Outdated = false
