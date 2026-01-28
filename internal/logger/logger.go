@@ -120,15 +120,12 @@ func Info(msg string, args ...interface{}) {
 	if !ensureReady() {
 		return
 	}
-	// Format message outside the lock
+	// Format OUTSIDE the lock (80% of the work)
 	formatted := formatMessage("✨ ", msg, args...)
 
 	// Fast path: direct write for non-JSON mode
 	if !useJSON.Load() {
-		mu.RLock()
-		colorized := p.Info(formatted)
-		mu.RUnlock()
-		writeDirect(colorized)
+		writeDirect(p.Info(formatted))
 		return
 	}
 
@@ -145,10 +142,7 @@ func Success(msg string, args ...interface{}) {
 	formatted := formatMessage("✅ ", msg, args...)
 
 	if !useJSON.Load() {
-		mu.RLock()
-		colorized := p.Success(formatted)
-		mu.RUnlock()
-		writeDirect(colorized)
+		writeDirect(p.Success(formatted))
 		return
 	}
 
@@ -164,10 +158,7 @@ func LogError(msg string, args ...interface{}) {
 	formatted := formatMessage("❌ ", msg, args...)
 
 	if !useJSON.Load() {
-		mu.RLock()
-		colorized := p.Error(formatted)
-		mu.RUnlock()
-		writeDirect(colorized)
+		writeDirect(p.Error(formatted))
 		return
 	}
 
@@ -183,10 +174,7 @@ func Warn(msg string, args ...interface{}) {
 	formatted := formatMessage("⚠️ ", msg, args...)
 
 	if !useJSON.Load() {
-		mu.RLock()
-		colorized := p.Warning(formatted)
-		mu.RUnlock()
-		writeDirect(colorized)
+		writeDirect(p.Warning(formatted))
 		return
 	}
 
@@ -211,10 +199,7 @@ func WarnInline(msg string, args ...interface{}) {
 		return
 	}
 	formatted := formatMessage("⚠️ ", msg, args...)
-	mu.RLock()
-	colorized := p.Warning(formatted)
-	mu.RUnlock()
-	writeDirect(colorized)
+	writeDirect(p.Warning(formatted))
 }
 
 func Debug(msg string, args ...interface{}) {
@@ -233,10 +218,7 @@ func Debug(msg string, args ...interface{}) {
 	formatted := formatMessage("🛠️  ", msg, args...)
 
 	if !useJSON.Load() {
-		mu.RLock()
-		colorized := p.Debug(formatted)
-		mu.RUnlock()
-		writeDirect(colorized)
+		writeDirect(p.Debug(formatted))
 		return
 	}
 
