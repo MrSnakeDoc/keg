@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MrSnakeDoc/keg/internal/brew"
 	"github.com/MrSnakeDoc/keg/internal/models"
 	"github.com/MrSnakeDoc/keg/internal/runner"
+	"github.com/MrSnakeDoc/keg/internal/utils"
+	"github.com/MrSnakeDoc/keg/internal/versions"
 )
 
 /* -----------------------------
@@ -22,9 +23,6 @@ func withIsolatedState(t *testing.T) {
 	tmp := t.TempDir()
 	_ = os.Setenv("HOME", tmp)
 	_ = os.Setenv("XDG_STATE_HOME", tmp)
-
-	// Force cache reset to ensure clean state for each test
-	brew.ResetCache()
 }
 
 func writeOutdatedCache(t *testing.T, entries map[string][2]string) {
@@ -133,16 +131,16 @@ func TestIsPackageInstalled_CachesBrewList(t *testing.T) {
 
 	b := NewBase(&models.Config{}, mr)
 
-	// first call → triggers cache refresh
+	// first call → triggers brew list
 	if !b.IsPackageInstalled("foo") {
 		t.Fatalf("expected foo installed")
 	}
-	// second call → should use cached result (within TTL)
+	// second call → should not re-run brew list
 	if !b.IsPackageInstalled("foo") {
 		t.Fatalf("expected foo installed on second call")
 	}
 
-	// Count brew list calls (should be 1 from initial cache load)
+	// Count brew list calls
 	count := 0
 	for _, c := range mr.Commands {
 		if c.Name == "brew" && len(c.Args) > 0 && c.Args[0] == "list" {
@@ -261,6 +259,8 @@ func TestHandlePackages_ValidateRejects(t *testing.T) {
 	cfg := &models.Config{Packages: []models.Package{{Command: "foo"}}}
 	b := NewBase(cfg, mr)
 
+	b.installedPkgs = map[string]bool{"__sentinel__": false}
+
 	opts := PackageHandlerOptions{
 		Action:       PackageAction{ActionVerb: "install"},
 		FilterFunc:   func(*models.Package) bool { return true },
@@ -270,16 +270,8 @@ func TestHandlePackages_ValidateRejects(t *testing.T) {
 	if err := b.HandlePackages(opts); err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-
-	// Should have cache refresh calls (brew list, brew outdated) but no install
-	hasInstall := false
-	for _, c := range mr.Commands {
-		if c.Name == "brew" && len(c.Args) > 0 && c.Args[0] == "install" {
-			hasInstall = true
-		}
-	}
-	if hasInstall {
-		t.Fatalf("expected no install calls (ValidateFunc rejected), got %+v", mr.Commands)
+	if len(mr.Commands) != 0 {
+		t.Fatalf("expected no brew calls, got %+v", mr.Commands)
 	}
 }
 
@@ -319,11 +311,10 @@ func TestHandlePackages_Upgrade_OnlyWhenOutdated(t *testing.T) {
 	mr := runner.NewMockRunner()
 	primeInstalled(mr, "foo")
 
-	// Mock brew info to show versions
-	mr.MockBrewInfoV2Formula("foo", "1.0.0", "1.1.0")
-
-	// Mock outdated JSON showing foo is outdated
-	mr.AddResponse("brew|outdated|--json=v2", []byte(`{"formulae":[{"name":"foo","installed_versions":["1.0.0"],"current_version":"1.1.0"}],"casks":[]}`), nil)
+	// foo is outdated
+	writeOutdatedCache(t, map[string][2]string{
+		"foo": {"1.0.0", "1.1.0"},
+	})
 
 	cfg := &models.Config{Packages: []models.Package{{Command: "foo"}}}
 	b := NewBase(cfg, mr)
@@ -404,18 +395,25 @@ func TestHandleSelectedPackage_SkipMessageWhenInstalled(t *testing.T) {
 func TestTouchVersionCache_Remove(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
+	primeInstalled(mr /* none */)
 
-	// Mock empty list (package not installed)
-	mr.AddResponse("brew|list|--formula|-1", []byte(""), nil)
+	// No installed entry in fetch state for "gone"
+	writeOutdatedCache(t, map[string][2]string{})
+
+	// Seed versions cache with a stale entry to ensure Remove does something observable
+	_ = versions.SaveCache(map[string]versions.Info{
+		"gone": {Installed: "0.1.0", Latest: "0.1.0", FetchedAt: time.Now()},
+	})
 
 	b := NewBase(&models.Config{}, mr)
-
-	// This should handle removal gracefully (package not installed)
 	b.touchVersionCache("gone")
 
-	// Verify cache reflects the removal
-	if b.cache != nil && b.cache.IsInstalled("gone") {
-		t.Fatalf("expected 'gone' to not be marked as installed in unified cache")
+	cache, err := versions.LoadCache()
+	if err != nil {
+		t.Fatalf("load cache: %v", err)
+	}
+	if _, ok := cache["gone"]; ok {
+		t.Fatalf("expected 'gone' to be removed from versions cache, got %+v", cache["gone"])
 	}
 }
 
@@ -423,15 +421,61 @@ func TestTouchVersionCache_Touch(t *testing.T) {
 	withIsolatedState(t)
 	mr := runner.NewMockRunner()
 
-	// Mock foo being installed
 	mr.AddResponse("brew|list|--formula|-1", []byte("foo\n"), nil)
 	mr.MockBrewInfoV2Formula("foo", "1.2.3", "1.2.3")
+
+	writeOutdatedCacheV2(t, map[string][2]string{
+		"foo": {"1.2.3", "1.2.4"},
+	})
 
 	b := NewBase(&models.Config{}, mr)
 	b.touchVersionCache("foo")
 
-	// Verify the unified cache reflects the installation
-	if b.cache == nil || !b.cache.IsInstalled("foo") {
-		t.Fatalf("expected foo to be marked as installed in unified cache")
+	cache, err := versions.LoadCache()
+	if err != nil {
+		t.Fatalf("load cache: %v", err)
+	}
+	vi, ok := cache["foo"]
+
+	if !ok || vi.Installed == "" {
+		t.Fatalf("expected cache to be touched for foo, got %+v (ok=%v)", vi, ok)
+	}
+}
+
+/*
+	-----------------------------
+	  Helpers for writing test cache
+
+------------------------------
+*/
+
+type testOutdatedFormula struct {
+	Name              string   `json:"name"`
+	InstalledVersions []string `json:"installed_versions"`
+	CurrentVersion    string   `json:"current_version"`
+}
+type testBrewOutdatedJSON struct {
+	Formulae []testOutdatedFormula `json:"formulae"`
+}
+type testCacheFile struct {
+	Data      *testBrewOutdatedJSON `json:"data"`
+	Timestamp time.Time             `json:"timestamp"`
+}
+
+func writeOutdatedCacheV2(t *testing.T, entries map[string][2]string) {
+	t.Helper()
+	payload := &testBrewOutdatedJSON{Formulae: make([]testOutdatedFormula, 0, len(entries))}
+	for name, pair := range entries {
+		payload.Formulae = append(payload.Formulae, testOutdatedFormula{
+			Name:              name,
+			InstalledVersions: []string{pair[0]},
+			CurrentVersion:    pair[1],
+		})
+	}
+	cache := testCacheFile{Data: payload, Timestamp: time.Now().UTC()}
+
+	path := utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile)
+	if err := utils.CreateFile(path, cache, "json", 0o600); err != nil {
+		t.Fatalf("write cache: %v", err)
 	}
 }

@@ -82,13 +82,7 @@ func TestFetchState_BadJSON(t *testing.T) {
 		}
 		return []byte{}, nil
 	}
-	// FetchState now returns empty maps on JSON error instead of failing
-	st, err := FetchState(mr)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// Should have installed packages but no outdated (due to JSON error)
-	if len(st.Installed) == 0 {
-		t.Fatal("expected at least installed packages")
+	if _, err := FetchState(mr); err == nil {
+		t.Fatal("expected error on invalid JSON")
 	}
 }
