@@ -110,7 +110,7 @@ func CreateFile(path string, content any, fileType string, perm os.FileMode) err
 func GetHomeDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		logger.Debug("failed to get user home directory: %v", err)
+		logger.Debug("failed to get user home directory: %w", err)
 		return ""
 	}
 	return home

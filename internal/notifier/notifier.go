@@ -36,7 +36,7 @@ func DisplayUpdateNotification() {
 
 	var state config.UpdateState
 	if err := utils.FileReader(stateFile, "json", &state); err != nil {
-		logger.Debug("failed to load update state: %v", err)
+		logger.Debug("failed to read update state: %w", err)
 		return
 	}
 

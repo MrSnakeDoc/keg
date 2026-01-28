@@ -10,7 +10,7 @@ type PackageStatus struct {
 
 func CreateStatusTable(title string, packages []PackageStatus) {
 	if title != "" {
-		logger.Info("%s", title)
+		logger.Info(title)
 	}
 
 	table := logger.CreateTable([]string{"Package", "Installed", "Status"})

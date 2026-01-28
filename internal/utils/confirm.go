@@ -8,7 +8,7 @@ import (
 )
 
 func ConfirmOrAbort(message, errormsg string) error {
-	logger.WarnInline("%s", message)
+	logger.WarnInline(message)
 	var response string
 	_, err := fmt.Scanln(&response)
 	if err != nil && err.Error() != "unexpected newline" {
