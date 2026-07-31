@@ -23,4 +23,6 @@ go.work.sum
 # env file
 .env
 
-todo.md
+dist/
+
+improvement/
