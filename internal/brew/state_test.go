@@ -3,9 +3,11 @@ package brew
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/MrSnakeDoc/keg/internal/runner"
+	"github.com/MrSnakeDoc/keg/internal/utils"
 )
 
 func minimalOutdatedJSON(t *testing.T, m map[string][2]string) []byte {
@@ -84,5 +86,72 @@ func TestFetchState_BadJSON(t *testing.T) {
 	}
 	if _, err := FetchState(mr); err == nil {
 		t.Fatal("expected error on invalid JSON")
+	}
+}
+
+func readOutdatedCache(t *testing.T) cacheFile {
+	t.Helper()
+	cachePath := filepath.Join(os.Getenv("HOME"), utils.CacheDir, utils.OutdatedFile)
+	b, err := os.ReadFile(cachePath)
+	if err != nil {
+		t.Fatalf("read cache: %v", err)
+	}
+
+	var cache cacheFile
+	if err := json.Unmarshal(b, &cache); err != nil {
+		t.Fatalf("decode cache: %v", err)
+	}
+	return cache
+}
+
+func countOutdatedCalls(mr *runner.MockRunner) int {
+	count := 0
+	for _, command := range mr.Commands {
+		if command.Name == "brew" && len(command.Args) > 0 && command.Args[0] == "outdated" {
+			count++
+		}
+	}
+	return count
+}
+
+func TestFetchOutdatedPackages_PersistsAndReusesCache(t *testing.T) {
+	withIsolatedState(t)
+	mr := runner.NewMockRunner()
+	mr.AddResponse("brew|list|--formula|-1", []byte("foo\n"), nil)
+	outJSON := minimalOutdatedJSON(t, map[string][2]string{"foo": {"1.0.0", "1.1.0"}})
+	mr.ResponseFunc = func(name string, args ...string) ([]byte, error) {
+		if name == "brew" && len(args) > 0 && args[0] == "outdated" {
+			return outJSON, nil
+		}
+		return []byte{}, nil
+	}
+
+	first, err := FetchState(mr)
+	if err != nil {
+		t.Fatalf("first fetch failed: %v", err)
+	}
+	if got := first.Outdated["foo"].LatestVersion; got != "1.1.0" {
+		t.Fatalf("first fetch returned latest version %q, want %q", got, "1.1.0")
+	}
+
+	cache := readOutdatedCache(t)
+	if cache.Data == nil || len(cache.Data.Formulae) != 1 {
+		t.Fatalf("cache data was not persisted: %#v", cache.Data)
+	}
+	if cache.Timestamp.IsZero() {
+		t.Fatal("cache timestamp was not persisted")
+	}
+
+	second, err := FetchState(mr)
+	if err != nil {
+		t.Fatalf("second fetch failed: %v", err)
+	}
+	if got := second.Outdated["foo"].LatestVersion; got != "1.1.0" {
+		t.Fatalf("second fetch returned latest version %q, want %q", got, "1.1.0")
+	}
+
+	outdatedCalls := countOutdatedCalls(mr)
+	if outdatedCalls != 1 {
+		t.Fatalf("brew outdated was called %d times, want 1", outdatedCalls)
 	}
 }
