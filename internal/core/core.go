@@ -58,10 +58,11 @@ type PackageAction struct {
 // It stores the user configuration, the internal cache of installed packages,
 // and uses a CommandRunner to interact with the underlying system.
 type Base struct {
-	Config        *models.Config
-	installedPkgs map[string]bool
-	Runner        runner.CommandRunner
-	upgradedPkgs  []string
+	Config          *models.Config
+	installedPkgs   map[string]bool
+	installedLoaded bool
+	Runner          runner.CommandRunner
+	upgradedPkgs    []string
 }
 
 // BrewSessionState holds a snapshot of brew's view of the world for a
@@ -133,7 +134,7 @@ func (b *Base) FindPackage(name string) (*models.Package, bool) {
 // Notes:
 //   - This function lazily loads the installed package list once on first call.
 func (b *Base) IsPackageInstalled(name string) bool {
-	if len(b.installedPkgs) == 0 {
+	if !b.installedLoaded {
 		if err := b.loadInstalledPackages(); err != nil {
 			return false
 		}
@@ -152,6 +153,7 @@ func (b *Base) loadInstalledPackages() error {
 		return err
 	}
 	b.installedPkgs = m
+	b.installedLoaded = true
 	return nil
 }
 

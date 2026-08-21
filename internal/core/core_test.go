@@ -152,6 +152,30 @@ func TestIsPackageInstalled_CachesBrewList(t *testing.T) {
 	}
 }
 
+func TestIsPackageInstalled_CachesEmptyBrewList(t *testing.T) {
+	withIsolatedState(t)
+
+	mr := runner.NewMockRunner()
+	b := NewBase(&models.Config{}, mr)
+
+	if b.IsPackageInstalled("foo") {
+		t.Fatal("did not expect foo to be installed")
+	}
+	if b.IsPackageInstalled("bar") {
+		t.Fatal("did not expect bar to be installed")
+	}
+
+	count := 0
+	for _, c := range mr.Commands {
+		if c.Name == "brew" && len(c.Args) > 0 && c.Args[0] == "list" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("expected brew list once for an empty result, got %d", count)
+	}
+}
+
 /* -----------------------------
    resolvePackageScoped
 ------------------------------ */
@@ -260,6 +284,7 @@ func TestHandlePackages_ValidateRejects(t *testing.T) {
 	b := NewBase(cfg, mr)
 
 	b.installedPkgs = map[string]bool{"__sentinel__": false}
+	b.installedLoaded = true
 
 	opts := PackageHandlerOptions{
 		Action:       PackageAction{ActionVerb: "install"},
