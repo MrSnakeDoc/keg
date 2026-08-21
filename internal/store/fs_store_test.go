@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"testing"
 	"time"
 )
@@ -112,6 +113,58 @@ func TestWriteIndexGZ_ErrorPropagation(t *testing.T) {
 	err := fs.WriteIndexGZ(context.Background(), &badReader{}, meta)
 	if err == nil {
 		t.Fatalf("expected error from bad reader, got nil")
+	}
+}
+
+func TestWriteIndexGZ_RestoresIndexWhenMetaWriteFails(t *testing.T) {
+	fs := newTestFS(t)
+	oldData := []byte("old-index")
+	meta := Meta{ETag: "old", GeneratedAt: time.Now().UTC(), SizeBytes: int64(len(oldData))}
+	if err := fs.WriteIndexGZ(context.Background(), bytes.NewReader(oldData), meta); err != nil {
+		t.Fatalf("write initial index: %v", err)
+	}
+
+	if err := os.Remove(fs.metaPath); err != nil {
+		t.Fatalf("remove metadata: %v", err)
+	}
+	if err := os.Mkdir(fs.metaPath, 0o755); err != nil {
+		t.Fatalf("block metadata path: %v", err)
+	}
+
+	err := fs.WriteIndexGZ(context.Background(), bytes.NewReader([]byte("new-index")), Meta{
+		ETag:        "new",
+		GeneratedAt: time.Now().UTC(),
+		SizeBytes:   9,
+	})
+	if err == nil {
+		t.Fatal("WriteIndexGZ succeeded, want metadata error")
+	}
+
+	got, err := os.ReadFile(fs.indexPath)
+	if err != nil {
+		t.Fatalf("read restored index: %v", err)
+	}
+	if string(got) != string(oldData) {
+		t.Fatalf("index after rollback is %q, want %q", got, oldData)
+	}
+}
+
+func TestStoreRejectsCanceledContexts(t *testing.T) {
+	fs := newTestFS(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, _, _, _, err := fs.OpenIndexGZ(ctx); err == nil {
+		t.Fatal("OpenIndexGZ accepted canceled context")
+	}
+	if _, err := fs.ReadMeta(ctx); err == nil {
+		t.Fatal("ReadMeta accepted canceled context")
+	}
+	if err := fs.WriteMeta(ctx, Meta{}); err == nil {
+		t.Fatal("WriteMeta accepted canceled context")
+	}
+	if err := fs.WriteIndexGZ(ctx, bytes.NewReader([]byte("data")), Meta{}); err == nil {
+		t.Fatal("WriteIndexGZ accepted canceled context")
 	}
 }
 

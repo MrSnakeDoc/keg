@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,6 +21,7 @@ type FS struct {
 	indexPath string
 	metaPath  string
 	mu        sync.RWMutex
+	writeMu   sync.Mutex
 	hotData   []byte
 	hotETag   string
 	hotGenAt  time.Time
@@ -65,6 +67,9 @@ func (s *FS) GetHot() (data []byte, etag string, generatedAt time.Time, size int
 
 // OpenIndexGZ opens the file for streaming (fallback when hot cache is empty).
 func (s *FS) OpenIndexGZ(ctx context.Context) (rc io.ReadSeekCloser, etag string, generatedAt time.Time, size int64, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, "", time.Time{}, 0, err
+	}
 	// fast-path: hot cache
 	if data, e, g, sz := s.GetHot(); data != nil {
 		return utils.NewBytesReadSeekCloser(data), e, g, sz, nil
@@ -79,8 +84,16 @@ func (s *FS) OpenIndexGZ(ctx context.Context) (rc io.ReadSeekCloser, etag string
 		_ = f.Close()
 		return nil, "", time.Time{}, 0, err
 	}
+	if err := ctx.Err(); err != nil {
+		_ = f.Close()
+		return nil, "", time.Time{}, 0, err
+	}
 
-	m, _ := s.ReadMeta(ctx) // best-effort
+	m, metaErr := s.ReadMeta(ctx) // best-effort, except cancellation
+	if metaErr != nil && ctx.Err() != nil {
+		_ = f.Close()
+		return nil, "", time.Time{}, 0, ctx.Err()
+	}
 	return f, m.ETag, m.GeneratedAt, fi.Size(), nil
 }
 
@@ -88,14 +101,35 @@ func (s *FS) OpenIndexGZ(ctx context.Context) (rc io.ReadSeekCloser, etag string
 // r must be the COMPLETE gzipped payload to persist as-is.
 // meta must contain at least ETag, GeneratedAt, SizeBytes (count/sha256 optional).
 func (s *FS) WriteIndexGZ(ctx context.Context, r io.Reader, meta Meta) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	logger.Debug("writing index.gz to %s (size=%s)", s.indexPath, utils.HumanSize(meta.SizeBytes))
 
+	previousIndex, hadPreviousIndex, err := readOptionalFile(s.indexPath)
+	if err != nil {
+		return err
+	}
 	tmp := s.indexPath + ".tmp"
 	if err := utils.WriteFileAtomic(tmp, s.indexPath, r); err != nil {
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		if restoreErr := restoreOptionalFile(s.indexPath, previousIndex, hadPreviousIndex); restoreErr != nil {
+			return fmt.Errorf("operation canceled: %w; restore previous index: %w", err, restoreErr)
+		}
+		return err
+	}
 	// Write meta.json (atomic as well)
 	if err := utils.WriteJSONAtomic(s.metaPath, meta); err != nil {
+		if restoreErr := restoreOptionalFile(s.indexPath, previousIndex, hadPreviousIndex); restoreErr != nil {
+			return fmt.Errorf("write metadata: %w; restore previous index: %w", err, restoreErr)
+		}
 		return err
 	}
 
@@ -105,16 +139,21 @@ func (s *FS) WriteIndexGZ(ctx context.Context, r io.Reader, meta Meta) error {
 
 // ReadMeta reads meta.json (if present).
 func (s *FS) ReadMeta(ctx context.Context) (met Meta, err error) {
+	if err := ctx.Err(); err != nil {
+		return Meta{}, err
+	}
 	f, err := os.Open(s.metaPath)
 	if err != nil {
 		return Meta{}, err
 	}
-
 	defer func() {
 		if cerr := f.Close(); cerr != nil && err == nil {
 			err = fmt.Errorf("close failed: %w", cerr)
 		}
 	}()
+	if err := ctx.Err(); err != nil {
+		return Meta{}, err
+	}
 
 	var m Meta
 	if err := json.NewDecoder(f).Decode(&m); err != nil {
@@ -124,6 +163,14 @@ func (s *FS) ReadMeta(ctx context.Context) (met Meta, err error) {
 }
 
 func (s *FS) WriteMeta(ctx context.Context, m Meta) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return utils.WriteJSONAtomic(s.metaPath, m)
 }
 
@@ -150,6 +197,27 @@ func (s *FS) loadHotFromDisk() error {
 	s.hotSize = int64(len(data))
 	s.mu.Unlock()
 	return nil
+}
+
+func readOptionalFile(path string) ([]byte, bool, error) {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return data, true, nil
+}
+
+func restoreOptionalFile(path string, data []byte, existed bool) error {
+	if !existed {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	return utils.WriteFileAtomic(path+".tmp", path, bytes.NewReader(data))
 }
 
 // clearHotCacheForTest is only used in unit tests to force a disk fallback
