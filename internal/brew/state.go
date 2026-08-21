@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/MrSnakeDoc/keg/internal/runner"
@@ -73,10 +75,15 @@ func FetchOutdatedPackages(r runner.CommandRunner) (*brewOutdatedJSON, error) {
 	}
 
 	// 4. Write the cache
-	var cache cacheFile
-	if err := utils.CreateFile(
-		utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile),
-		cache, "json", 0o600); err != nil {
+	cache := cacheFile{
+		Data:      &outdated,
+		Timestamp: time.Now().UTC(),
+	}
+	cachePath := utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile)
+	if err := os.MkdirAll(filepath.Dir(cachePath), 0o700); err != nil {
+		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	if err := utils.WriteJSONAtomic(cachePath, cache); err != nil {
 		return nil, fmt.Errorf("failed to write cache: %w", err)
 	}
 
