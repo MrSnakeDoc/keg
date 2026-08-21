@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -71,16 +72,38 @@ func DownloadToFile(ctx context.Context, c HTTPClient, url, dst string, maxSize 
 		}
 	}()
 
-	var src io.Reader = resp.Body
-	if maxSize > 0 {
-		src = io.LimitReader(resp.Body, maxSize)
-	}
-	_, err = io.Copy(f, src)
+	tooLarge, err := copyResponseBody(f, resp.Body, maxSize)
 	if err != nil {
 		return fmt.Errorf("copy to file: %w", err)
 	}
+	if tooLarge {
+		if closeErr := f.Close(); closeErr != nil {
+			return fmt.Errorf("response exceeds maximum size of %d bytes; close failed: %w", maxSize, closeErr)
+		}
+		if removeErr := os.Remove(dst); removeErr != nil {
+			return fmt.Errorf("response exceeds maximum size of %d bytes; failed to remove partial file: %w", maxSize, removeErr)
+		}
+		return fmt.Errorf("response exceeds maximum size of %d bytes", maxSize)
+	}
 
 	return err
+}
+
+func copyResponseBody(dst io.Writer, body io.Reader, maxSize int64) (tooLarge bool, err error) {
+	src := body
+	if maxSize > 0 {
+		limit := maxSize
+		if maxSize < math.MaxInt64 {
+			limit++
+		}
+		src = io.LimitReader(body, limit)
+	}
+
+	bytesWritten, err := io.Copy(dst, src)
+	if err != nil {
+		return false, err
+	}
+	return maxSize > 0 && bytesWritten > maxSize, nil
 }
 
 // ----------------------
