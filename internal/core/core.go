@@ -277,6 +277,13 @@ func (b *Base) finalizeUpgrades() {
 	// 3) bulk refresh version cache per upgraded package (after cleanup)
 	b.bulkTouchVersionCache(uniq)
 
+	// Refresh Brew's outdated snapshot after the upgrades have completed. The
+	// snapshot is otherwise reused for up to 24 hours, which would make the
+	// next `upgrade --check` report packages that were already upgraded.
+	if _, err := brew.FetchOutdatedPackages(b.Runner); err != nil {
+		logger.Debug("failed to refresh brew outdated cache: %v", err)
+	}
+
 	// reset for next HandlePackages run
 	b.upgradedPkgs = b.upgradedPkgs[:0]
 }

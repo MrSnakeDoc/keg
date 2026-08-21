@@ -467,6 +467,28 @@ func TestTouchVersionCache_Touch(t *testing.T) {
 	}
 }
 
+func TestFinalizeUpgradesRefreshesOutdatedCache(t *testing.T) {
+	withIsolatedState(t)
+	mr := runner.NewMockRunner()
+	mr.AddResponse("brew|outdated|--json=v2", []byte(`{
+		"formulae": [],
+		"casks": []
+	}`), nil)
+
+	b := NewBase(&models.Config{}, mr)
+	b.upgradedPkgs = []string{"foo"}
+	b.finalizeUpgrades()
+
+	if !mr.VerifyCommand("brew", "outdated", "--json=v2") {
+		t.Fatalf("expected outdated cache refresh, got commands: %+v", mr.Commands)
+	}
+
+	path := utils.MakeFilePath(utils.CacheDir, utils.OutdatedFile)
+	if ok, err := utils.FileExists(path); err != nil || !ok {
+		t.Fatalf("expected outdated cache at %s, exists=%v, err=%v", path, ok, err)
+	}
+}
+
 /*
 	-----------------------------
 	  Helpers for writing test cache
