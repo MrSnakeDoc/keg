@@ -27,6 +27,14 @@ type CancelOnClose struct {
 	Cancel func()
 }
 
+func (r *CancelOnClose) Close() error {
+	err := r.ReadCloser.Close()
+	if r.Cancel != nil {
+		r.Cancel()
+	}
+	return err
+}
+
 func NewHTTPClient(timeout time.Duration) *DefaultHTTPClient {
 	return &DefaultHTTPClient{Client: &http.Client{Timeout: timeout}}
 }
@@ -169,33 +177,30 @@ func handleResponse(resp *http.Response, maxBytes int64, cancel func()) (f Fetch
 
 	switch resp.StatusCode {
 	case http.StatusNotModified:
-		cancel()
-		return FetchResult{Status: http.StatusNotModified, ETag: headerETag(resp)}, nil
+		return closeRejectedResponse(resp, cancel,
+			FetchResult{Status: http.StatusNotModified, ETag: headerETag(resp)}, nil)
 
 	case http.StatusOK:
 
 	case http.StatusTooManyRequests:
-		cancel()
-		return FetchResult{}, fmt.Errorf("429 too many requests")
+		return closeRejectedResponse(resp, cancel, FetchResult{}, fmt.Errorf("429 too many requests"))
 
 	default:
 		if resp.StatusCode >= 500 && resp.StatusCode <= 599 {
-			cancel()
-			return FetchResult{}, fmt.Errorf("server error %d", resp.StatusCode)
+			return closeRejectedResponse(resp, cancel, FetchResult{}, fmt.Errorf("server error %d", resp.StatusCode))
 		}
-		cancel()
-		return FetchResult{}, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return closeRejectedResponse(resp, cancel, FetchResult{}, fmt.Errorf("unexpected status %d", resp.StatusCode))
 	}
 
 	if !isJSON(resp.Header.Get("Content-Type")) {
-		cancel()
-		return FetchResult{}, fmt.Errorf("unexpected content-type %q", resp.Header.Get("Content-Type"))
+		return closeRejectedResponse(resp, cancel, FetchResult{},
+			fmt.Errorf("unexpected content-type %q", resp.Header.Get("Content-Type")))
 	}
 
 	cl := headerContentLength(resp)
 	if maxBytes > 0 && cl > 0 && cl > maxBytes {
-		cancel()
-		return FetchResult{}, fmt.Errorf("content-length %d exceeds limit %d bytes", cl, maxBytes)
+		return closeRejectedResponse(resp, cancel, FetchResult{},
+			fmt.Errorf("content-length %d exceeds limit %d bytes", cl, maxBytes))
 	}
 
 	var rc io.ReadCloser
@@ -215,6 +220,18 @@ func handleResponse(resp *http.Response, maxBytes int64, cancel func()) (f Fetch
 		Body:   rc,
 		Length: clOrMinusOne(cl),
 	}, nil
+}
+
+func closeRejectedResponse(resp *http.Response, cancel func(), result FetchResult, responseErr error) (FetchResult, error) {
+	var closeErr error
+	if resp.Body != nil {
+		closeErr = resp.Body.Close()
+	}
+	cancel()
+	if closeErr != nil {
+		return FetchResult{}, fmt.Errorf("%w; close failed: %w", responseErr, closeErr)
+	}
+	return result, responseErr
 }
 
 // helpers

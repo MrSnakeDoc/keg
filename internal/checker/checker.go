@@ -139,6 +139,9 @@ func MakeHTTPRequest(ctx context.Context, client service.HTTPClient, url string)
 
 	if resp.StatusCode != http.StatusOK {
 		logger.Debug("Received non-200 response: %d", resp.StatusCode)
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		return nil, fmt.Errorf("non-200 response: %d", resp.StatusCode)
 	}
 
@@ -161,7 +164,7 @@ func convertReleaseToVersionInfo(release *GitHubRelease, checksum string) *utils
 	}
 }
 
-func (c *CheckerController) fetchChecksum(ctx context.Context, release *GitHubRelease) (string, error) {
+func (c *CheckerController) fetchChecksum(ctx context.Context, release *GitHubRelease) (checksum string, err error) {
 	baseURL := c.Config.ChecksumBaseURL
 	if baseURL == "" {
 		baseURL = "https://github.com/MrSnakeDoc/keg/releases/download"
@@ -173,6 +176,11 @@ func (c *CheckerController) fetchChecksum(ctx context.Context, release *GitHubRe
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch checksums: %w", err)
 	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close failed: %w", cerr)
+		}
+	}()
 
 	// Read the entire checksums file
 	body, err := io.ReadAll(resp.Body)
