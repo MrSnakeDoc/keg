@@ -227,3 +227,58 @@ func TestUpdater_PrepareSwap_BrewPathError(t *testing.T) {
 		t.Errorf("expected brew path error, got %v", err)
 	}
 }
+
+func TestUpdater_ApplySwap_UsesBinaryFoundOnPath(t *testing.T) {
+	tmpHome := t.TempDir()
+	_ = os.Setenv("HOME", tmpHome)
+
+	pathBinary := filepath.Join(tmpHome, "bin", "keg")
+	if err := os.MkdirAll(filepath.Dir(pathBinary), 0o755); err != nil {
+		t.Fatalf("mkdir binary dir: %v", err)
+	}
+	if err := os.WriteFile(pathBinary, []byte("OLD_BINARY"), 0o755); err != nil {
+		t.Fatalf("write old binary: %v", err)
+	}
+
+	up := New(nil, nil, nil)
+	up.pathInfo = &pathInfo{BinaryPath: filepath.Join(tmpHome, ".local", "bin", "keg")}
+	utils.LookForFileInPath = func(_ string) (string, error) { return pathBinary, nil }
+	defer func() { utils.LookForFileInPath = utils.DefaultLookForFileInPath }()
+
+	if err := up.PrepareSwap(); err != nil {
+		t.Fatalf("prepare swap failed: %v", err)
+	}
+
+	if up.pathInfo.BinaryPath != pathBinary {
+		t.Fatalf("target binary path is %q, want %q", up.pathInfo.BinaryPath, pathBinary)
+	}
+	if up.pathInfo.BackupPath != pathBinary+".old" {
+		t.Fatalf("backup path is %q, want %q", up.pathInfo.BackupPath, pathBinary+".old")
+	}
+
+	newBinary := filepath.Join(filepath.Dir(pathBinary), "keg-update.bin")
+	if err := os.WriteFile(newBinary, []byte("NEW_BINARY"), 0o600); err != nil {
+		t.Fatalf("write new binary: %v", err)
+	}
+	up.pathInfo.TempFileName = newBinary
+
+	if err := up.ApplySwap(); err != nil {
+		t.Fatalf("apply swap failed: %v", err)
+	}
+
+	data, err := os.ReadFile(pathBinary)
+	if err != nil {
+		t.Fatalf("read updated binary: %v", err)
+	}
+	if string(data) != "NEW_BINARY" {
+		t.Fatalf("updated binary contains %q, want %q", data, "NEW_BINARY")
+	}
+
+	backup, err := os.ReadFile(pathBinary + ".old")
+	if err != nil {
+		t.Fatalf("read backup binary: %v", err)
+	}
+	if string(backup) != "OLD_BINARY" {
+		t.Fatalf("backup binary contains %q, want %q", backup, "OLD_BINARY")
+	}
+}

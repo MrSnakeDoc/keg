@@ -98,16 +98,16 @@ func (u *Updater) Execute(ctx context.Context, checkOnly bool) error {
 
 	logger.Info("🔄 Update available: v%s", resp.Version)
 
-	logger.Info("🔄 Starting downloading the binary file")
-	err = u.downloadBinary(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to download binary: %w", err)
-	}
-
 	logger.Info("🔄 Preparing for binary swap...")
 	err = u.PrepareSwap()
 	if err != nil {
 		return fmt.Errorf("failed to prepare swap: %w", err)
+	}
+
+	logger.Info("🔄 Starting downloading the binary file")
+	err = u.downloadBinary(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to download binary: %w", err)
 	}
 
 	logger.Info("🔄 Starting binary swap...")
@@ -148,7 +148,11 @@ func (u *Updater) downloadBinary(ctx context.Context) error {
 }
 
 func (u *Updater) PrepareSwap() error {
-	if ok, _ := utils.FileExists(u.pathInfo.BinaryPath); !ok {
+	ok, err := utils.FileExists(u.pathInfo.BinaryPath)
+	if err != nil {
+		return fmt.Errorf("failed to inspect target binary: %w", err)
+	}
+	if !ok {
 		logger.Warn("🔍 Target path %s not found, trying to locate it...", u.pathInfo.BinaryPath)
 
 		expandedPath, err := utils.LookForFileInPath("keg")
@@ -156,6 +160,9 @@ func (u *Updater) PrepareSwap() error {
 			return fmt.Errorf("unable to locate existing keg binary: %w", err)
 		}
 		u.pathInfo.OldBinaryPath = strings.TrimSpace(expandedPath)
+		if u.pathInfo.OldBinaryPath == "" {
+			return fmt.Errorf("unable to locate existing keg binary: empty path")
+		}
 		logger.Info("🔎 Found existing keg binary at %s", u.pathInfo.OldBinaryPath)
 
 		if strings.HasPrefix(u.pathInfo.OldBinaryPath, "linuxbrew/.linuxbrew") {
@@ -167,6 +174,9 @@ func (u *Updater) PrepareSwap() error {
 			utils.WarnBrewInstallation("/usr/local/bin")
 			return fmt.Errorf("keg binary found in /usr/local/bin, please remove it before proceeding")
 		}
+
+		// The binary found through PATH is the actual installation to replace.
+		u.pathInfo.BinaryPath = u.pathInfo.OldBinaryPath
 	}
 
 	u.pathInfo.BackupPath = u.pathInfo.BinaryPath + ".old"
@@ -196,7 +206,23 @@ func (u *Updater) ApplySwap() error {
 		return fmt.Errorf("install failed: %w", err)
 	}
 	// 3. Chmod after rename to ensure permissions are set correctly
-	return os.Chmod(u.pathInfo.BinaryPath, 0o755)
+	if err := os.Chmod(u.pathInfo.BinaryPath, 0o755); err != nil {
+		if rollbackErr := rollbackSwap(u.pathInfo); rollbackErr != nil {
+			return fmt.Errorf("chmod failed: %w; rollback failed: %w", err, rollbackErr)
+		}
+		return fmt.Errorf("chmod failed: %w", err)
+	}
+	return nil
+}
+
+func rollbackSwap(info *pathInfo) error {
+	if err := os.Rename(info.BinaryPath, info.TempFileName); err != nil {
+		return fmt.Errorf("move new binary aside: %w", err)
+	}
+	if err := os.Rename(info.BackupPath, info.BinaryPath); err != nil {
+		return fmt.Errorf("restore previous binary: %w", err)
+	}
+	return nil
 }
 
 func (u *Updater) Cleanup() error {
