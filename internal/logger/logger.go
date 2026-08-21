@@ -21,6 +21,7 @@ type Options struct {
 
 var (
 	mu       sync.RWMutex
+	writeMu  sync.Mutex
 	zlog     *zap.SugaredLogger
 	out      io.Writer = os.Stdout
 	p        *printer.ColorPrinter
@@ -158,7 +159,10 @@ func WarnInline(msg string, args ...interface{}) {
 	// inline write directly to out to preserve non-line break semantics
 	mu.RLock()
 	defer mu.RUnlock()
-	_, _ = io.WriteString(out, p.Warning("⚠️ "+msg))
+	message := p.Warning("⚠️ "+msg, args...)
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	_, _ = io.WriteString(out, message)
 }
 
 func Debug(msg string, args ...interface{}) {
@@ -188,7 +192,11 @@ func RenderRow(table *tablewriter.Table, name, ver, status, pkgType string) erro
 
 type writerAdapter struct{ w io.Writer }
 
-func (wa writerAdapter) Write(p []byte) (int, error) { return wa.w.Write(p) }
+func (wa writerAdapter) Write(p []byte) (int, error) {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	return wa.w.Write(p)
+}
 
 func parseLevel(s string) zapcore.Level {
 	switch s {
