@@ -40,6 +40,9 @@ func configureLocked(opts Options) {
 	if opts.Out != nil {
 		out = opts.Out
 	}
+	if out == nil {
+		out = os.Stdout
+	}
 	encCfg := zap.NewProductionEncoderConfig()
 	encCfg.TimeKey = ""
 	encCfg.LevelKey = ""
@@ -155,9 +158,6 @@ func WarnInline(msg string, args ...interface{}) {
 	// inline write directly to out to preserve non-line break semantics
 	mu.RLock()
 	defer mu.RUnlock()
-	if out == nil {
-		out = os.Stdout
-	}
 	_, _ = io.WriteString(out, p.Warning("⚠️ "+msg))
 }
 
