@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"path"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
-
-	"github.com/MrSnakeDoc/keg/internal/logger"
 )
 
 type VersionInfo struct {
@@ -69,26 +69,33 @@ func ParseChecksumsForBinary(body, tag string) (string, error) {
 }
 
 func ValidateVersion(info *VersionInfo) error {
-	const (
-		minVersionLength = 5
-		minSHA256Length  = 64
-		baseUpdateURL    = "https://github.com/MrSnakeDoc/keg/releases/download/"
-	)
-
-	if info.Version == "" || len(info.Version) < minVersionLength {
-
-		logger.Debug("invalid version format")
-		return nil
+	if info == nil {
+		return errors.New("version information is nil")
+	}
+	if !IsSemver(info.Version) {
+		return fmt.Errorf("invalid version %q: expected x.y.z", info.Version)
+	}
+	if len(info.SHA256) != sha256.Size*2 {
+		return fmt.Errorf("invalid SHA256 %q: expected %d hexadecimal characters", info.SHA256, sha256.Size*2)
+	}
+	if _, err := hex.DecodeString(info.SHA256); err != nil {
+		return fmt.Errorf("invalid SHA256 %q: expected hexadecimal characters: %w", info.SHA256, err)
 	}
 
-	if info.SHA256 == "" || len(info.SHA256) != minSHA256Length {
-		logger.Debug("invalid SHA256 format")
-		return nil
+	downloadURL, err := url.Parse(info.URL)
+	if err != nil {
+		return fmt.Errorf("invalid download URL: %w", err)
+	}
+	if downloadURL.Scheme != "https" || downloadURL.Hostname() != "github.com" || downloadURL.User != nil {
+		return fmt.Errorf("invalid download URL %q: expected an HTTPS github.com URL", info.URL)
+	}
+	if downloadURL.RawQuery != "" || downloadURL.Fragment != "" {
+		return fmt.Errorf("invalid download URL %q: query parameters and fragments are not allowed", info.URL)
 	}
 
-	if info.URL == "" || !strings.HasPrefix(info.URL, baseUpdateURL) {
-		logger.Debug("invalid download URL: must start with %s", baseUpdateURL)
-		return nil
+	const releasePath = "/MrSnakeDoc/keg/releases/download/"
+	if !strings.HasPrefix(downloadURL.Path, releasePath) || path.Base(downloadURL.Path) != AssetName(info.Version) {
+		return fmt.Errorf("invalid download URL %q: unexpected release asset", info.URL)
 	}
 
 	return nil
