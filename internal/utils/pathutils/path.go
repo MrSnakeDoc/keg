@@ -13,14 +13,18 @@ func ToHomePathFormat(path string) (string, error) {
 		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	if strings.HasPrefix(path, home) {
-		return "~" + strings.TrimPrefix(path, home), nil
+	relative, err := filepath.Rel(home, path)
+	if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+		if relative == "." {
+			return "~", nil
+		}
+		return filepath.Join("~", relative), nil
 	}
 	return path, nil
 }
 
 func ToAbsolutePath(path string) (string, error) {
-	if strings.HasPrefix(path, "~") {
+	if path == "~" || strings.HasPrefix(path, "~"+string(os.PathSeparator)) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("failed to get home directory: %w", err)
