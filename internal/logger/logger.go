@@ -32,7 +32,11 @@ var (
 func Configure(opts Options) {
 	mu.Lock()
 	defer mu.Unlock()
+	configureLocked(opts)
+}
 
+// configureLocked rebuilds the logger. The caller must hold mu.
+func configureLocked(opts Options) {
 	if opts.Out != nil {
 		out = opts.Out
 	}
@@ -67,13 +71,7 @@ func Configure(opts Options) {
 func SetLevel(level string) {
 	mu.Lock()
 	defer mu.Unlock()
-	curLevel = parseLevel(level)
-	if zlog == nil {
-		Configure(Options{Level: level})
-		return
-	}
-	// rebuild core with new level
-	Configure(Options{Level: level, Out: out})
+	configureLocked(Options{Level: level, Out: out})
 }
 
 // SetOutput replaces the logger writer (use io.Discard in tests).
@@ -83,12 +81,7 @@ func SetOutput(w io.Writer) {
 	if w == nil {
 		w = os.Stdout
 	}
-	out = w
-	if zlog == nil {
-		Configure(Options{})
-		return
-	}
-	Configure(Options{Level: curLevel.String(), Out: out})
+	configureLocked(Options{Level: curLevel.String(), Out: w})
 }
 
 // UseTestMode silences logs during tests.
@@ -219,6 +212,8 @@ func ensureReady() bool {
 	if !ready.Load() {
 		return false
 	}
+	mu.RLock()
+	defer mu.RUnlock()
 	if p == nil || zlog == nil {
 		return false
 	}
